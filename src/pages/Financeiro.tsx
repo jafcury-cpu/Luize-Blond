@@ -1,4 +1,5 @@
 import { lazy, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { DeferredLazySection } from "@/components/zarqa/deferred-lazy-section";
 import { LoadingPanel } from "@/components/zarqa/loading-panel";
 import { SectionCard } from "@/components/zarqa/section-card";
@@ -6,37 +7,64 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/zarqa-cloud-data";
 import {
-  financeCategoryData,
-  financeTransactions,
   formatCurrency,
   formatDate,
   getStatusVariant,
-  upcomingBills,
 } from "@/lib/zarqa-mocks";
 
 const Financeiro = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [financeData, setFinanceData] = useState<FinanceData>(getFallbackFinanceData());
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 850);
-    return () => window.clearTimeout(timer);
-  }, []);
+    if (!user) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await getFinanceData(user.id);
+        if (!cancelled) setFinanceData(data);
+      } catch (error) {
+        if (!cancelled) {
+          setFinanceData(getFallbackFinanceData());
+          toast({
+            variant: "destructive",
+            title: "Falha ao carregar financeiro",
+            description: error instanceof Error ? error.message : "Usando dados de demonstração locais.",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [toast, user]);
 
   const filteredTransactions = useMemo(
     () =>
-      financeTransactions.filter((transaction) => {
+      financeData.transactions.filter((transaction) => {
         const matchesSearch = transaction.description.toLowerCase().includes(search.toLowerCase());
         const matchesStatus = statusFilter === "todos" || transaction.status === statusFilter;
         return matchesSearch && matchesStatus;
       }),
-    [search, statusFilter],
+    [financeData.transactions, search, statusFilter],
   );
 
-  const totalBalance = financeTransactions.reduce((acc, item) => acc + item.amount, 0);
-  const upcomingSevenDays = upcomingBills.slice(0, 3);
+   const upcomingSevenDays = financeData.upcomingBills.slice(0, 3);
   const FinanceCategoryChart = lazy(() => import("@/components/zarqa/finance-category-chart"));
 
   if (loading) {
@@ -54,15 +82,15 @@ const Financeiro = () => {
     <div className="grid gap-4 xl:grid-cols-12">
       <SectionCard title="Saldo Total" description="Posição consolidada dos últimos 30 dias" eyebrow="Cash position" className="xl:col-span-4">
         <div className="space-y-4 rounded-2xl border border-border bg-panel-elevated p-5">
-          <p className="font-display text-5xl leading-none text-foreground">{formatCurrency(totalBalance)}</p>
+           <p className="font-display text-5xl leading-none text-foreground">{formatCurrency(financeData.summary.totalBalance)}</p>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl border border-border bg-panel p-3">
               <p className="text-muted-foreground">Entradas</p>
-              <p className="mt-2 font-display text-2xl text-success">{formatCurrency(9400)}</p>
+               <p className="mt-2 font-display text-2xl text-success">{formatCurrency(financeData.summary.entries)}</p>
             </div>
             <div className="rounded-xl border border-border bg-panel p-3">
               <p className="text-muted-foreground">Saídas</p>
-              <p className="mt-2 font-display text-2xl text-primary">{formatCurrency(12980)}</p>
+               <p className="mt-2 font-display text-2xl text-primary">{formatCurrency(financeData.summary.exits)}</p>
             </div>
           </div>
         </div>
@@ -70,7 +98,7 @@ const Financeiro = () => {
 
       <SectionCard title="Gastos por Categoria" description="Últimos 30 dias" eyebrow="Allocation view" className="xl:col-span-8">
         {/* TODO: conectar com n8n webhook */}
-        <DeferredLazySection component={FinanceCategoryChart} minHeightClassName="min-h-[320px]" />
+         <DeferredLazySection component={FinanceCategoryChart} componentProps={{ data: financeData.categoryData }} minHeightClassName="min-h-[320px]" />
       </SectionCard>
 
       <SectionCard title="Transações Recentes" description="Busca e filtro operacional" eyebrow="Ledger" className="xl:col-span-8">
