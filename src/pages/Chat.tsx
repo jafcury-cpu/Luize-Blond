@@ -16,6 +16,10 @@ type MessageRow = {
   created_at: string;
 };
 
+function isValidMessageRole(role: string): role is MessageRow["role"] {
+  return role === "user" || role === "assistant";
+}
+
 const fallbackWelcome: MessageRow = {
   id: "welcome",
   role: "assistant",
@@ -32,6 +36,10 @@ async function extractReply(response: Response) {
   }
 
   return response.text();
+}
+
+function sanitizeMessages(rows: Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined) {
+  return (rows ?? []).filter((row): row is MessageRow => isValidMessageRole(row.role));
 }
 
 const Chat = () => {
@@ -58,7 +66,7 @@ const Chat = () => {
       if (messagesError) {
         toast({ variant: "destructive", title: "Falha ao carregar chat", description: messagesError.message });
       } else {
-        setMessages((messageRows as MessageRow[]) ?? []);
+        setMessages(sanitizeMessages(messageRows as Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined));
       }
 
       if (!settingsError) {
@@ -226,7 +234,7 @@ const Chat = () => {
           </div>
           <div className="rounded-xl border border-border bg-panel-elevated p-4">
             <p className="mb-2 text-kicker">Payload</p>
-            <p className="leading-6">Mensagem atual, userId e histórico recente são enviados em POST JSON para o n8n.</p>
+             <p className="leading-6">Mensagem atual, userId e histórico validado com papéis permitidos são enviados em POST JSON para o n8n.</p>
           </div>
         </div>
       </SectionCard>
