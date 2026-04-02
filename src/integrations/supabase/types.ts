@@ -14,7 +14,228 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          module: string
+          priority: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          module: string
+          priority: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          module?: string
+          priority?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bills: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          paid_at?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          category: string
+          created_at: string
+          file_url: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          file_url: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_url?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      health_scores: {
+        Row: {
+          calories: number
+          created_at: string
+          date: string
+          hrv: number
+          id: string
+          overall_score: number
+          sleep_hours: number
+          sleep_quality: number
+          steps: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calories?: number
+          created_at?: string
+          date: string
+          hrv?: number
+          id?: string
+          overall_score: number
+          sleep_hours?: number
+          sleep_quality?: number
+          steps?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          created_at?: string
+          date?: string
+          hrv?: number
+          id?: string
+          overall_score?: number
+          sleep_hours?: number
+          sleep_quality?: number
+          steps?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          created_at: string
+          id: string
+          timezone: string
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          timezone?: string
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          date: string
+          description: string
+          id?: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
