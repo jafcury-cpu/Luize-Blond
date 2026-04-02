@@ -15,9 +15,10 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const redirectTo = typeof location.state?.from === "string" ? location.state.from : "/dashboard";
 
   if (user) {
-    return <Navigate to={location.state?.from || "/dashboard"} replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

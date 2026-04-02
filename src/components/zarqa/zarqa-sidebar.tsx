@@ -10,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { useState } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
@@ -44,8 +45,10 @@ export function ZarqaSidebar() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const collapsed = state === "collapsed";
+  const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
+    setSigningOut(true);
     try {
       await signOut();
     } catch (error) {
@@ -54,6 +57,8 @@ export function ZarqaSidebar() {
         title: "Falha ao encerrar sessão",
         description: error instanceof Error ? error.message : "Tente novamente.",
       });
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -120,9 +125,14 @@ export function ZarqaSidebar() {
             <p className="mt-2 truncate text-sm text-sidebar-foreground">{user?.email}</p>
           </div>
         ) : null}
-        <Button variant="ghost" className="justify-start text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSignOut}>
+        <Button
+          variant="ghost"
+          className="justify-start text-sidebar-foreground hover:bg-sidebar-accent"
+          onClick={handleSignOut}
+          disabled={signingOut}
+        >
           <LogOut />
-          {!collapsed ? <span>Sair</span> : null}
+          {!collapsed ? <span>{signingOut ? "Saindo..." : "Sair"}</span> : null}
         </Button>
       </SidebarFooter>
     </Sidebar>
