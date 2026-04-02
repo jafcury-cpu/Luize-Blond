@@ -1,11 +1,16 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { healthTrend } from "@/lib/zarqa-mocks";
 
-export default function HealthTrendChart() {
+type HealthTrendPoint = {
+  day: string;
+  score: number;
+  sleep: number;
+};
+
+export default function HealthTrendChart({ data }: { data: HealthTrendPoint[] }) {
   return (
     <div className="h-[340px] rounded-2xl border border-border bg-panel-elevated p-4">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={healthTrend} margin={{ top: 18, right: 18, left: -10, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 18, right: 18, left: -10, bottom: 0 }}>
           <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
           <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
           <Tooltip
