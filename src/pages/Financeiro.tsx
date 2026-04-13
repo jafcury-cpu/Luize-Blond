@@ -1,4 +1,4 @@
-import { lazy, useEffect, useMemo, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { supabase } from "@/integrations/supabase/client";
 import { DeferredLazySection } from "@/components/zarqa/deferred-lazy-section";
@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/zarqa-cloud-data";
+import { BankAccountFormDialog } from "@/components/zarqa/bank-account-form-dialog";
+import { CreditCardFormDialog } from "@/components/zarqa/credit-card-form-dialog";
+import { ReconciliationFormDialog } from "@/components/zarqa/reconciliation-form-dialog";
 import {
   formatCurrency,
   formatDate,
@@ -131,6 +134,20 @@ const Financeiro = () => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(defaultBankAccounts);
   const [creditCards, setCreditCards] = useState<CreditCardRow[]>(defaultCreditCards);
   const [reconciliation, setReconciliation] = useState<ReconciliationRow[]>(defaultReconciliation);
+
+  const reloadDynamic = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [baResult, ccResult, rcResult] = await Promise.all([
+        supabase.from("bank_accounts").select("*").order("bank_name"),
+        supabase.from("credit_cards").select("*").order("card_name"),
+        supabase.from("reconciliation_status").select("*").order("institution"),
+      ]);
+      if (baResult.data) setBankAccounts(baResult.data as unknown as BankAccount[]);
+      if (ccResult.data) setCreditCards(ccResult.data as unknown as CreditCardRow[]);
+      if (rcResult.data) setReconciliation(rcResult.data as unknown as ReconciliationRow[]);
+    } catch { /* silent */ }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -409,10 +426,16 @@ const Financeiro = () => {
           </TabsList>
 
           <TabsContent value="contas">
+            <div className="mb-3 flex justify-end">
+              <BankAccountFormDialog onSaved={reloadDynamic} />
+            </div>
             <div className="grid gap-4 md:grid-cols-3">
               {bankAccounts.map((account) => (
                 <div key={account.id} className="rounded-2xl border border-border bg-panel-elevated p-5">
-                  <p className="text-sm font-semibold text-muted-foreground">{account.bank_name}</p>
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm font-semibold text-muted-foreground">{account.bank_name}</p>
+                    <BankAccountFormDialog account={account} onSaved={reloadDynamic} />
+                  </div>
                   <h3 className="mt-2 text-lg font-semibold text-foreground">{account.description || account.account_type}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Saldo: {formatCurrency(account.balance)} • Conciliação: {account.reconciliation_pct}%
@@ -423,10 +446,16 @@ const Financeiro = () => {
           </TabsContent>
 
           <TabsContent value="cartoes">
+            <div className="mb-3 flex justify-end">
+              <CreditCardFormDialog onSaved={reloadDynamic} />
+            </div>
             <div className="grid gap-4 md:grid-cols-3">
               {creditCards.map((card) => (
                 <div key={card.id} className="rounded-2xl border border-border bg-panel-elevated p-5">
-                  <CreditCard className="h-5 w-5 text-primary" />
+                  <div className="flex items-start justify-between">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <CreditCardFormDialog card={card} onSaved={reloadDynamic} />
+                  </div>
                   <h3 className="mt-3 text-lg font-semibold text-foreground">{card.card_name}</h3>
                   <p className="mt-2 text-sm font-medium text-foreground">
                     {card.credit_limit > 0 ? `${Math.round((card.used_amount / card.credit_limit) * 100)}% do limite usado` : "Sem limite definido"}
@@ -440,27 +469,22 @@ const Financeiro = () => {
           </TabsContent>
 
           <TabsContent value="conciliacao">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
-                <h3 className="text-lg font-semibold text-foreground">Fase 1 — Manual</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Importar OFX/CSV, validar lançamentos, marcar divergências e fechar o mês com segurança.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  Mais rápida para colocar no ar
+            <div className="mb-3 flex justify-end">
+              <ReconciliationFormDialog onSaved={reloadDynamic} />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {reconciliation.map((row) => (
+                <div key={row.id} className="rounded-2xl border border-border bg-panel-elevated p-5">
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm font-semibold text-foreground">{row.institution}</p>
+                    <ReconciliationFormDialog row={row} onSaved={reloadDynamic} />
+                  </div>
+                  <p className="mt-2 font-display text-2xl text-foreground">{row.progress_pct}%</p>
+                  <Progress value={row.progress_pct} className="mt-2 h-2 bg-muted" />
+                  <p className="mt-2 text-xs text-muted-foreground">Fase: {row.current_phase}</p>
+                  {row.note && <p className="mt-1 text-xs text-muted-foreground">{row.note}</p>}
                 </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
-                <h3 className="text-lg font-semibold text-foreground">Fase 2 — Open Finance</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Conectar Open Finance para atualizar extratos automaticamente e reduzir o trabalho manual.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning">
-                  <BadgeAlert className="h-3.5 w-3.5" />
-                  Exige integração bancária dedicada
-                </div>
-              </div>
+              ))}
             </div>
           </TabsContent>
         </Tabs>
