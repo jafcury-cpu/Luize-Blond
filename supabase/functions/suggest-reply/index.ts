@@ -41,13 +41,13 @@ serve(async (req) => {
       );
     }
 
-    // Fetch the message
-    const { data: message, error: msgError } = await supabase
+    // Fetch the message (filter by user if authenticated)
+    let query = supabase
       .from("communication_messages")
       .select("*")
-      .eq("id", message_id)
-      .eq("user_id", user.id)
-      .single();
+      .eq("id", message_id);
+    if (userId) query = query.eq("user_id", userId);
+    const { data: message, error: msgError } = await query.single();
 
     if (msgError || !message) {
       return new Response(JSON.stringify({ error: "Message not found" }), {
