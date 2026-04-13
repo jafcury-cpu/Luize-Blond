@@ -6,6 +6,17 @@ import {
   HeartPulse,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
+  MessagesSquare,
+  Settings,
+  Wallet,
+} from "lucide-react";
+  BookUser,
+  ChevronRight,
+  FileText,
+  HeartPulse,
+  LayoutDashboard,
+  LogOut,
   MessagesSquare,
   Settings,
   Wallet,
@@ -38,6 +49,7 @@ const navigation = [
   { title: "Saúde", href: "/saude", icon: HeartPulse },
   { title: "Documentos", href: "/documentos", icon: FileText },
   { title: "Contatos", href: "/contatos", icon: BookUser },
+  { title: "Comunicações", href: "/comunicacoes", icon: MessageCircle },
   { title: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
