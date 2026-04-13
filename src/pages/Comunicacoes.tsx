@@ -241,7 +241,7 @@ const Comunicacoes = () => {
         </SectionCard>
 
         {/* Detail / reply panel */}
-        <SectionCard title="Secretária IA" subtitle="Sugerir e aprovar respostas">
+        <SectionCard title="Secretária IA" description="Sugerir e aprovar respostas">
           {!selectedMsg ? (
             <div className="py-16 text-center">
               <Sparkles className="mx-auto mb-3 size-10 text-muted-foreground/40" />
