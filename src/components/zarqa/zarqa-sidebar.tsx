@@ -11,16 +11,6 @@ import {
   Settings,
   Wallet,
 } from "lucide-react";
-  BookUser,
-  ChevronRight,
-  FileText,
-  HeartPulse,
-  LayoutDashboard,
-  LogOut,
-  MessagesSquare,
-  Settings,
-  Wallet,
-} from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useState } from "react";
 import { NavLink } from "@/components/NavLink";
