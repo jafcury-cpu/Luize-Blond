@@ -2,9 +2,16 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// AUTH TEMPORARILY DISABLED – set to true to re-enable Google login
+const AUTH_ENABLED = false;
+
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (!AUTH_ENABLED) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
