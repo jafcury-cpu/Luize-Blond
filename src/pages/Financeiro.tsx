@@ -469,27 +469,22 @@ const Financeiro = () => {
           </TabsContent>
 
           <TabsContent value="conciliacao">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
-                <h3 className="text-lg font-semibold text-foreground">Fase 1 — Manual</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Importar OFX/CSV, validar lançamentos, marcar divergências e fechar o mês com segurança.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  Mais rápida para colocar no ar
+            <div className="mb-3 flex justify-end">
+              <ReconciliationFormDialog onSaved={reloadDynamic} />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {reconciliation.map((row) => (
+                <div key={row.id} className="rounded-2xl border border-border bg-panel-elevated p-5">
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm font-semibold text-foreground">{row.institution}</p>
+                    <ReconciliationFormDialog row={row} onSaved={reloadDynamic} />
+                  </div>
+                  <p className="mt-2 font-display text-2xl text-foreground">{row.progress_pct}%</p>
+                  <Progress value={row.progress_pct} className="mt-2 h-2 bg-muted" />
+                  <p className="mt-2 text-xs text-muted-foreground">Fase: {row.current_phase}</p>
+                  {row.note && <p className="mt-1 text-xs text-muted-foreground">{row.note}</p>}
                 </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
-                <h3 className="text-lg font-semibold text-foreground">Fase 2 — Open Finance</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Conectar Open Finance para atualizar extratos automaticamente e reduzir o trabalho manual.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning">
-                  <BadgeAlert className="h-3.5 w-3.5" />
-                  Exige integração bancária dedicada
-                </div>
-              </div>
+              ))}
             </div>
           </TabsContent>
         </Tabs>
