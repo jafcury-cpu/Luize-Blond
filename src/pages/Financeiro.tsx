@@ -5,7 +5,9 @@ import { LoadingPanel } from "@/components/zarqa/loading-panel";
 import { SectionCard } from "@/components/zarqa/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/zarqa-cloud-data";
@@ -14,6 +16,74 @@ import {
   formatDate,
   getStatusVariant,
 } from "@/lib/zarqa-mocks";
+import {
+  ArrowUpRight,
+  BadgeAlert,
+  CalendarClock,
+  CreditCard,
+  Landmark,
+  ReceiptText,
+  ScanSearch,
+  Wallet,
+} from "lucide-react";
+
+type Metric = {
+  label: string;
+  value: string;
+  delta: string;
+  tone: "primary" | "success" | "warning";
+};
+
+type TimelineItem = {
+  day: string;
+  title: string;
+  amount: string;
+  meta: string;
+};
+
+const timeline: TimelineItem[] = [
+  { day: "Hoje", title: "Fatura C6 Black", amount: "R$ 1.140", meta: "vence em 3 dias" },
+  { day: "Amanhã", title: "Boleto condomínio", amount: "R$ 780", meta: "agendado no Itaú" },
+  { day: "Sex", title: "Conciliação Bradesco", amount: "12 lançamentos", meta: "2 divergências" },
+  { day: "Seg", title: "Fechamento Visa Itaú", amount: "R$ 2.040", meta: "limite usado 64%" },
+];
+
+const bankStatus = [
+  { name: "Itaú", progress: 92, detail: "OFX e conciliação automática preparados" },
+  { name: "Bradesco", progress: 74, detail: "último extrato importado hoje" },
+  { name: "C6", progress: 61, detail: "cartão ativo e boletos vinculados" },
+];
+
+const modules = [
+  {
+    icon: Wallet,
+    title: "Despesas pessoais",
+    description: "Categorias, lançamentos recorrentes, contas compartilhadas e visão mensal consolidada.",
+  },
+  {
+    icon: CreditCard,
+    title: "Cartões de crédito",
+    description: "Fechamento, vencimento, limite, parcelas e faturas separadas por banco e titular.",
+  },
+  {
+    icon: ReceiptText,
+    title: "Boletos e contas",
+    description: "Controle de vencimentos, pagamentos e alertas de atraso com histórico centralizado.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Conciliação bancária",
+    description: "Importação manual agora, Open Finance na próxima etapa, com revisão de divergências.",
+  },
+];
+
+const toneStyles: Record<Metric["tone"], string> = {
+  primary: "bg-primary/20 text-primary",
+  success: "bg-success/20 text-success",
+  warning: "bg-warning/20 text-warning",
+};
+
+const FinanceCategoryChart = lazy(() => import("@/components/zarqa/finance-category-chart"));
 
 const Financeiro = () => {
   const { user } = useAuth();
@@ -64,8 +134,43 @@ const Financeiro = () => {
     [financeData.transactions, search, statusFilter],
   );
 
-   const upcomingSevenDays = financeData.upcomingBills.slice(0, 3);
-  const FinanceCategoryChart = lazy(() => import("@/components/zarqa/finance-category-chart"));
+  const upcomingSevenDays = financeData.upcomingBills.slice(0, 3);
+
+  const metrics: Metric[] = useMemo(() => {
+    const pendingBills = financeData.upcomingBills.filter((b) => b.status === "pendente");
+    const overdueBills = financeData.upcomingBills.filter((b) => b.status === "atrasado");
+    return [
+      {
+        label: "Saída do mês",
+        value: formatCurrency(financeData.summary.exits),
+        delta: `${financeData.transactions.filter((t) => t.amount < 0).length} transações`,
+        tone: "warning",
+      },
+      {
+        label: "Faturas abertas",
+        value: formatCurrency(pendingBills.reduce((s, b) => s + b.amount, 0)),
+        delta: `${pendingBills.length} pendentes`,
+        tone: "primary",
+      },
+      {
+        label: "Boletos atrasados",
+        value: formatCurrency(overdueBills.reduce((s, b) => s + b.amount, 0)),
+        delta: overdueBills.length ? `${overdueBills.length} vencem esta semana` : "Nenhum atraso",
+        tone: overdueBills.length ? "warning" : "success",
+      },
+      {
+        label: "Entradas",
+        value: formatCurrency(financeData.summary.entries),
+        delta: `${financeData.transactions.filter((t) => t.amount > 0).length} receitas`,
+        tone: "success",
+      },
+    ];
+  }, [financeData]);
+
+  const reconciliationCompletion = useMemo(
+    () => Math.round(bankStatus.reduce((sum, item) => sum + item.progress, 0) / bankStatus.length),
+    [],
+  );
 
   if (loading) {
     return (
@@ -79,29 +184,111 @@ const Financeiro = () => {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-12">
-      <SectionCard title="Saldo Total" description="Posição consolidada dos últimos 30 dias" eyebrow="Cash position" className="xl:col-span-4">
-        <div className="space-y-4 rounded-2xl border border-border bg-panel-elevated p-5">
-           <p className="font-display text-5xl leading-none text-foreground">{formatCurrency(financeData.summary.totalBalance)}</p>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl border border-border bg-panel p-3">
-              <p className="text-muted-foreground">Entradas</p>
-               <p className="mt-2 font-display text-2xl text-success">{formatCurrency(financeData.summary.entries)}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-panel p-3">
-              <p className="text-muted-foreground">Saídas</p>
-               <p className="mt-2 font-display text-2xl text-primary">{formatCurrency(financeData.summary.exits)}</p>
+    <div className="flex flex-col gap-4">
+      {/* Row 1: Summary + Reconciliation */}
+      <div className="grid gap-4 xl:grid-cols-12">
+        <SectionCard title="Saldo Total" description="Posição consolidada dos últimos 30 dias" eyebrow="Cash position" className="xl:col-span-4">
+          <div className="space-y-4 rounded-2xl border border-border bg-panel-elevated p-5">
+            <p className="font-display text-5xl leading-none text-foreground">{formatCurrency(financeData.summary.totalBalance)}</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-border bg-panel p-3">
+                <p className="text-muted-foreground">Entradas</p>
+                <p className="mt-2 font-display text-2xl text-success">{formatCurrency(financeData.summary.entries)}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-panel p-3">
+                <p className="text-muted-foreground">Saídas</p>
+                <p className="mt-2 font-display text-2xl text-primary">{formatCurrency(financeData.summary.exits)}</p>
+              </div>
             </div>
           </div>
-        </div>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard title="Gastos por Categoria" description="Últimos 30 dias" eyebrow="Allocation view" className="xl:col-span-8">
-        {/* TODO: conectar com n8n webhook */}
-         <DeferredLazySection component={FinanceCategoryChart} componentProps={{ data: financeData.categoryData }} minHeightClassName="min-h-[320px]" />
-      </SectionCard>
+        <SectionCard title="Prontidão da Conciliação" description="Status por instituição bancária" eyebrow="Reconciliation" className="xl:col-span-4">
+          <div className="rounded-2xl border border-border bg-panel-elevated p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Progresso geral</p>
+                <p className="mt-2 font-display text-4xl text-foreground">{reconciliationCompletion}%</p>
+              </div>
+              <div className="rounded-2xl bg-primary/15 p-3 text-primary">
+                <Landmark className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="mt-5 space-y-4">
+              {bankStatus.map((bank) => (
+                <div key={bank.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-foreground">{bank.name}</span>
+                    <span className="text-muted-foreground">{bank.progress}%</span>
+                  </div>
+                  <Progress value={bank.progress} className="h-2 bg-muted" />
+                  <p className="text-xs text-muted-foreground">{bank.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionCard>
 
-      <SectionCard title="Transações Recentes" description="Busca e filtro operacional" eyebrow="Ledger" className="xl:col-span-8">
+        <SectionCard title="Contas nos próximos 7 dias" description="Janela tática de vencimentos" eyebrow="Due soon" className="xl:col-span-4">
+          <div className="space-y-3">
+            {upcomingSevenDays.map((bill) => (
+              <div key={bill.id} className="rounded-xl border border-border bg-panel-elevated p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">{bill.description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Vence {formatDate(bill.dueDate)}</p>
+                  </div>
+                  <Badge variant={getStatusVariant(bill.status)}>{bill.status}</Badge>
+                </div>
+                <p className="mt-3 font-display text-2xl text-foreground">{formatCurrency(bill.amount)}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      {/* Row 2: KPI metrics */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((item) => (
+          <div key={item.label} className="rounded-2xl border border-border bg-panel p-5">
+            <p className="text-sm text-muted-foreground">{item.label}</p>
+            <p className="mt-2 font-display text-3xl text-foreground">{item.value}</p>
+            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${toneStyles[item.tone]}`}>
+              {item.delta}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 3: Category chart + Timeline */}
+      <div className="grid gap-4 xl:grid-cols-12">
+        <SectionCard title="Gastos por Categoria" description="Últimos 30 dias" eyebrow="Allocation view" className="xl:col-span-8">
+          <DeferredLazySection component={FinanceCategoryChart} componentProps={{ data: financeData.categoryData }} minHeightClassName="min-h-[320px]" />
+        </SectionCard>
+
+        <SectionCard title="Próximos vencimentos" description="Agenda operacional de pagamentos" eyebrow="Timeline" className="xl:col-span-4">
+          <div className="space-y-3">
+            {timeline.map((item) => (
+              <div key={`${item.day}-${item.title}`} className="rounded-xl border border-border bg-panel-elevated p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{item.day}</p>
+                    <p className="mt-2 font-medium text-foreground">{item.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.meta}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-foreground">{item.amount}</p>
+                    <ArrowUpRight className="ml-auto mt-2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      {/* Row 4: Transactions table */}
+      <SectionCard title="Transações Recentes" description="Busca e filtro operacional" eyebrow="Ledger">
         <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px]">
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por descrição" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -144,21 +331,88 @@ const Financeiro = () => {
         </div>
       </SectionCard>
 
-      <SectionCard title="Contas nos próximos 7 dias" description="Janela tática de vencimentos" eyebrow="Due soon" className="xl:col-span-4">
-        <div className="space-y-3">
-          {upcomingSevenDays.map((bill) => (
-            <div key={bill.id} className="rounded-xl border border-border bg-panel-elevated p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-foreground">{bill.description}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Vence {formatDate(bill.dueDate)}</p>
-                </div>
-                <Badge variant={getStatusVariant(bill.status)}>{bill.status}</Badge>
+      {/* Row 5: Modules grid */}
+      <SectionCard title="Módulos do Sistema Financeiro" description="Organizado para controlar rotina, faturas, boletos e divergências" eyebrow="Capabilities">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {modules.map(({ icon: Icon, title, description }) => (
+            <div key={title} className="rounded-2xl border border-border bg-panel-elevated p-5">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                <Icon className="h-5 w-5" />
               </div>
-              <p className="mt-3 font-display text-2xl text-foreground">{formatCurrency(bill.amount)}</p>
+              <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
             </div>
           ))}
         </div>
+      </SectionCard>
+
+      {/* Row 6: Tabs — Contas, Cartões, Conciliação */}
+      <SectionCard title="Visão Detalhada" description="Separação por contas, cartões e conciliação" eyebrow="Deep dive">
+        <Tabs defaultValue="contas" className="space-y-4">
+          <TabsList className="h-auto flex-wrap rounded-full bg-muted/70 p-1">
+            <TabsTrigger className="rounded-full px-5" value="contas">Contas</TabsTrigger>
+            <TabsTrigger className="rounded-full px-5" value="cartoes">Cartões</TabsTrigger>
+            <TabsTrigger className="rounded-full px-5" value="conciliacao">Conciliação</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="contas">
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                ["Itaú", "Conta principal da casa", "Saldo inicial, boletos agendados e conciliação"],
+                ["Bradesco", "Reserva e despesas do casal", "Importação OFX e conferência semanal"],
+                ["C6", "Conta conectada ao cartão", "Limite, fatura e transferências no mesmo lugar"],
+              ].map(([bank, title, desc]) => (
+                <div key={bank} className="rounded-2xl border border-border bg-panel-elevated p-5">
+                  <p className="text-sm font-semibold text-muted-foreground">{bank}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-foreground">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="cartoes">
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                ["Itaú Visa", "64% do limite usado", "fecha dia 10 • vence dia 17"],
+                ["Bradesco Elo", "32% do limite usado", "fecha dia 18 • vence dia 25"],
+                ["C6 Black", "51% do limite usado", "fecha dia 08 • vence dia 15"],
+              ].map(([name, usage, meta]) => (
+                <div key={name} className="rounded-2xl border border-border bg-panel-elevated p-5">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <h3 className="mt-3 text-lg font-semibold text-foreground">{name}</h3>
+                  <p className="mt-2 text-sm font-medium text-foreground">{usage}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{meta}</p>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="conciliacao">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
+                <h3 className="text-lg font-semibold text-foreground">Fase 1 — Manual</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Importar OFX/CSV, validar lançamentos, marcar divergências e fechar o mês com segurança.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Mais rápida para colocar no ar
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-panel-elevated p-5">
+                <h3 className="text-lg font-semibold text-foreground">Fase 2 — Open Finance</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Conectar Open Finance para atualizar extratos automaticamente e reduzir o trabalho manual.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning">
+                  <BadgeAlert className="h-3.5 w-3.5" />
+                  Exige integração bancária dedicada
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </SectionCard>
     </div>
   );
