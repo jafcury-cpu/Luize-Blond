@@ -20,6 +20,7 @@ const Saude = lazy(() => import("./pages/Saude.tsx"));
 const Documentos = lazy(() => import("./pages/Documentos.tsx"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes.tsx"));
 const Contatos = lazy(() => import("./pages/Contatos.tsx"));
+const Comunicacoes = lazy(() => import("./pages/Comunicacoes.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
                   <Route path="/saude" element={<Saude />} />
                   <Route path="/documentos" element={<Documentos />} />
                   <Route path="/contatos" element={<Contatos />} />
+                  <Route path="/comunicacoes" element={<Comunicacoes />} />
                   <Route path="/configuracoes" element={<Configuracoes />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

@@ -10,6 +10,7 @@ const labels: Record<string, { title: string; subtitle: string }> = {
   "/financeiro": { title: "Financeiro", subtitle: "Liquidez, gastos e vencimentos" },
   "/saude": { title: "Saúde", subtitle: "Biometria e consistência diária" },
   "/documentos": { title: "Documentos", subtitle: "Busca, upload e memória operacional" },
+  "/comunicacoes": { title: "Comunicações", subtitle: "Hub centralizado de canais e secretária IA" },
   "/configuracoes": { title: "Configurações", subtitle: "Webhook, timezone e preferências" },
 };
 
