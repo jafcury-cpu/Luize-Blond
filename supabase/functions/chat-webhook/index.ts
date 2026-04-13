@@ -144,7 +144,8 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = getEnv("SUPABASE_URL");
-    const supabasePublishableKey = getEnv("SUPABASE_PUBLISHABLE_KEY");
+    const supabasePublishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!supabasePublishableKey) throw new Error("Supabase anon key is not configured");
 
     const supabase = createClient(supabaseUrl, supabasePublishableKey, {
       global: { headers: { Authorization: authHeader } },
