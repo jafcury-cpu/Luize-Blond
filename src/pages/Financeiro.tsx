@@ -1,4 +1,4 @@
-import { lazy, useEffect, useMemo, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { supabase } from "@/integrations/supabase/client";
 import { DeferredLazySection } from "@/components/zarqa/deferred-lazy-section";
@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/zarqa-cloud-data";
+import { BankAccountFormDialog } from "@/components/zarqa/bank-account-form-dialog";
+import { CreditCardFormDialog } from "@/components/zarqa/credit-card-form-dialog";
+import { ReconciliationFormDialog } from "@/components/zarqa/reconciliation-form-dialog";
 import {
   formatCurrency,
   formatDate,
