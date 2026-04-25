@@ -6,11 +6,13 @@ import { DeferredLazySection } from "@/components/luize/deferred-lazy-section";
 import { LoadingPanel } from "@/components/luize/loading-panel";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/luize-cloud-data";
@@ -27,11 +29,22 @@ import {
   BadgeAlert,
   CalendarClock,
   CreditCard,
+  FileText,
   Landmark,
+  Loader2,
   ReceiptText,
   ScanSearch,
+  Save,
   Wallet,
 } from "lucide-react";
+
+type ParsedTransaction = {
+  description: string;
+  amount: number;
+  date: string;
+  category: string;
+  status: string;
+};
 
 type Metric = {
   label: string;
@@ -137,6 +150,57 @@ const Financeiro = () => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(defaultBankAccounts);
   const [creditCards, setCreditCards] = useState<CreditCardRow[]>(defaultCreditCards);
   const [reconciliation, setReconciliation] = useState<ReconciliationRow[]>(defaultReconciliation);
+
+  // Extrato state
+  const [extratoText, setExtratoText] = useState("");
+  const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isSavingExtrato, setIsSavingExtrato] = useState(false);
+
+  const handleParseExtrato = async () => {
+    if (!extratoText.trim() || isParsing) return;
+    setIsParsing(true);
+    setParsedTransactions([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-extrato", {
+        body: { text: extratoText },
+      });
+      if (error) throw error;
+      setParsedTransactions((data?.transactions as ParsedTransaction[]) ?? []);
+      if (!data?.transactions?.length) {
+        toast({ title: "Nenhuma transação encontrada", description: "Verifique o texto colado e tente novamente." });
+      }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erro ao processar extrato", description: err instanceof Error ? err.message : "Tente novamente." });
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleSaveExtrato = async () => {
+    if (!user || !parsedTransactions.length || isSavingExtrato) return;
+    setIsSavingExtrato(true);
+    try {
+      const rows = parsedTransactions.map((t) => ({
+        user_id: user.id,
+        description: t.description,
+        amount: t.amount,
+        category: t.category,
+        date: t.date,
+        status: t.status,
+        source: "extrato" as const,
+      }));
+      const { error } = await supabase.from("transactions").insert(rows);
+      if (error) throw error;
+      toast({ title: `${rows.length} transações salvas`, description: "Extrato importado com sucesso." });
+      setExtratoText("");
+      setParsedTransactions([]);
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erro ao salvar", description: err instanceof Error ? err.message : "Tente novamente." });
+    } finally {
+      setIsSavingExtrato(false);
+    }
+  };
 
   const reloadDynamic = useCallback(async () => {
     if (!user) return;
@@ -418,7 +482,59 @@ const Financeiro = () => {
         </div>
       </SectionCard>
 
-      {/* Row 6: Tabs — Contas, Cartões, Conciliação */}
+      {/* Row 6: Extrato paste area */}
+      <SectionCard title="Importar Extrato" description="Cole o texto do extrato bancário — Luize extrai e salva as transações automaticamente" eyebrow="AI parsing">
+        <div className="space-y-4">
+          <Textarea
+            value={extratoText}
+            onChange={(e) => setExtratoText(e.target.value)}
+            placeholder={"Cole aqui o extrato copiado do seu banco...\n\nExemplo:\n04/05 PIX RESTAURANTE FASANO -680,00\n05/05 DEBITO ACADEMIA -420,00\n06/05 TRANSFERENCIA RECEBIDA +9.400,00"}
+            className="min-h-[160px] resize-y font-mono text-sm"
+          />
+          <div className="flex items-center gap-3">
+            <Button onClick={handleParseExtrato} disabled={!extratoText.trim() || isParsing} variant="secondary">
+              {isParsing ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              {isParsing ? "Processando..." : "Processar extrato"}
+            </Button>
+            {parsedTransactions.length > 0 && (
+              <Button onClick={handleSaveExtrato} disabled={isSavingExtrato}>
+                {isSavingExtrato ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {isSavingExtrato ? "Salvando..." : `Salvar ${parsedTransactions.length} transações`}
+              </Button>
+            )}
+          </div>
+
+          {parsedTransactions.length > 0 && (
+            <div className="rounded-2xl border border-border bg-panel-elevated p-2">
+              <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pré-visualização</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {parsedTransactions.map((tx, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium text-foreground">{tx.description}</TableCell>
+                      <TableCell>{tx.category}</TableCell>
+                      <TableCell>{formatDate(tx.date)}</TableCell>
+                      <TableCell className={tx.amount < 0 ? "text-primary" : "text-success"}>{formatCurrency(tx.amount)}</TableCell>
+                      <TableCell><Badge variant={getStatusVariant(tx.status)}>{tx.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* Row 7: Tabs — Contas, Cartões, Conciliação */}
       <SectionCard title="Visão Detalhada" description="Separação por contas, cartões e conciliação" eyebrow={t("financeiro.eyebrow.deepDive")}>
         <Tabs defaultValue="contas" className="space-y-4">
           <TabsList className="h-auto flex-wrap rounded-full bg-muted/70 p-1">

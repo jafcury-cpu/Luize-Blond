@@ -1,6 +1,6 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BellRing, Link2, Save } from "lucide-react";
+import { BellRing, Copy, Link2, Save, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
@@ -41,9 +41,16 @@ const Configuracoes = () => {
   const { toast } = useToast();
   const [webhookUrl, setWebhookUrl] = useState("");
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const webhookError = useMemo(() => validateWebhookUrl(webhookUrl), [webhookUrl]);
+
+  const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
+  const telegramWebhookUrl = supabaseProjectId
+    ? `https://${supabaseProjectId}.supabase.co/functions/v1/telegram-webhook`
+    : "";
 
   useEffect(() => {
     if (!user) {
@@ -53,12 +60,14 @@ const Configuracoes = () => {
 
     const loadSettings = async () => {
       setLoading(true);
-      const { data, error } = await supabase.from("settings").select("webhook_url, timezone").eq("user_id", user.id).maybeSingle();
+      const { data, error } = await supabase.from("settings").select("webhook_url, timezone, telegram_bot_token, telegram_chat_id").eq("user_id", user.id).maybeSingle();
       if (error) {
         toast({ variant: "destructive", title: "Falha ao carregar configurações", description: error.message });
       } else if (data) {
         setWebhookUrl(data.webhook_url ?? "");
         setTimezone(data.timezone ?? "America/Sao_Paulo");
+        setTelegramBotToken((data as Record<string, unknown>).telegram_bot_token as string ?? "");
+        setTelegramChatId((data as Record<string, unknown>).telegram_chat_id as string ?? "");
       }
       setLoading(false);
     };
@@ -81,7 +90,9 @@ const Configuracoes = () => {
         user_id: user.id,
         webhook_url: webhookUrl || null,
         timezone,
-      },
+        telegram_bot_token: telegramBotToken || null,
+        telegram_chat_id: telegramChatId || null,
+      } as Record<string, unknown>,
       { onConflict: "user_id" },
     );
 
@@ -126,6 +137,56 @@ const Configuracoes = () => {
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Telegram — Bot Token</label>
+            <Input
+              value={telegramBotToken}
+              onChange={(e) => setTelegramBotToken(e.target.value)}
+              placeholder="123456:ABCdef... (obtido no BotFather)"
+              disabled={loading}
+              type="password"
+            />
+            <p className="text-sm text-muted-foreground">
+              Crie um bot no <strong>@BotFather</strong> e cole o token aqui. Luize receberá despesas enviadas por ele.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Telegram — Chat ID</label>
+            <Input
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              placeholder="Ex: 123456789 (use @userinfobot para descobrir)"
+              disabled={loading}
+            />
+            <p className="text-sm text-muted-foreground">
+              Opcional. Limita as mensagens aceitas ao seu chat. Use <strong>@userinfobot</strong> no Telegram para obter seu ID.
+            </p>
+          </div>
+
+          {telegramWebhookUrl && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">URL do Webhook Telegram</label>
+              <div className="flex items-center gap-2">
+                <Input value={telegramWebhookUrl} readOnly className="font-mono text-xs" />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => { navigator.clipboard.writeText(telegramWebhookUrl); toast({ title: "URL copiada" }); }}
+                >
+                  <Copy className="size-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Registre esta URL como webhook do seu bot via:<br />
+                <code className="rounded bg-muted px-1 text-xs">
+                  {"https://api.telegram.org/bot{TOKEN}/setWebhook?url={URL}&secret_token={TOKEN}"}
+                </code>
+              </p>
+            </div>
+          )}
+
           <Button type="submit" variant="hero" disabled={saving || loading || Boolean(webhookError)}>
             <Save className="size-4" />
             {saving ? "Salvando..." : "Salvar configurações"}
@@ -144,6 +205,16 @@ const Configuracoes = () => {
               <Badge variant={webhookUrl ? "success" : "warning"}>{webhookUrl ? "Conectado" : "Pendente"}</Badge>
             </div>
             <p>{webhookUrl || "Nenhuma URL configurada."}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-panel-elevated p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-foreground">
+                <Send className="size-4 text-accent-blue" />
+                Telegram
+              </div>
+              <Badge variant={telegramBotToken ? "success" : "warning"}>{telegramBotToken ? "Configurado" : "Pendente"}</Badge>
+            </div>
+            <p>{telegramBotToken ? "Bot ativo — Luize aceita despesas via Telegram." : "Configure o bot token para ativar."}</p>
           </div>
           <div className="rounded-2xl border border-border bg-panel-elevated p-4">
             <div className="mb-2 flex items-center gap-2 text-foreground">
