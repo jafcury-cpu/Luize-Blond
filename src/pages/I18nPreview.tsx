@@ -75,18 +75,35 @@ export default function I18nPreview() {
     [],
   );
 
+  const areas = useMemo(() => {
+    const set = new Set<string>();
+    for (const [key] of allEntries) {
+      set.add(key.includes(".") ? key.split(".")[0] : "outros");
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allEntries]);
+
+  const byArea = useMemo(() => {
+    if (area === "__all__") return allEntries;
+    return allEntries.filter(
+      ([key]) =>
+        (key.includes(".") ? key.split(".")[0] : "outros") === area,
+    );
+  }, [allEntries, area]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allEntries;
-    return allEntries.filter(
+    if (!q) return byArea;
+    return byArea.filter(
       ([key, value]) =>
         key.toLowerCase().includes(q) || value.toLowerCase().includes(q),
     );
-  }, [allEntries, query]);
+  }, [byArea, query]);
 
   const groups = useMemo(() => groupByArea(filtered), [filtered]);
   const total = allEntries.length;
   const showing = filtered.length;
+  const areaCount = byArea.length;
 
   function handleExport(
     format: ExportFormat,
