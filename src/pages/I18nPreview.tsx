@@ -1,9 +1,29 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { dictionary, t } from "@/lib/i18n";
+
+function escapeCsvField(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function downloadFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 type Group = {
   area: string;
@@ -61,6 +81,44 @@ export default function I18nPreview() {
             Use a busca para localizar por chave ou valor.
           </p>
         </header>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const payload = JSON.stringify(
+                Object.fromEntries(filtered),
+                null,
+                2,
+              );
+              downloadFile("luize-i18n.json", payload, "application/json");
+            }}
+          >
+            <Download className="mr-2 size-4" />
+            Exportar JSON
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const header = "key,value";
+              const rows = filtered.map(
+                ([key, value]) => `${escapeCsvField(key)},${escapeCsvField(value)}`,
+              );
+              const csv = [header, ...rows].join("\n");
+              downloadFile("luize-i18n.csv", csv, "text/csv");
+            }}
+          >
+            <Download className="mr-2 size-4" />
+            Exportar CSV
+          </Button>
+          <span className="self-center text-xs text-muted-foreground">
+            Exporta {filtered.length} chave(s) {query ? "(filtradas)" : ""}
+          </span>
+        </div>
 
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
