@@ -70,7 +70,7 @@ const Documentos = () => {
   const mergedDocuments = useMemo(() => {
     const uploaded = documents.map((document) => ({
       ...document,
-      preview: "Arquivo privado enviado para o storage da Luize.",
+      preview: "Arquivo privado enviado para o storage da Luize Blond.",
       origin: "uploaded" as const,
     }));
     const all = [
