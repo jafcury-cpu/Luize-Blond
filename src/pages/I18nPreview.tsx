@@ -179,18 +179,20 @@ export default function I18nPreview() {
                 variant="default"
                 size="sm"
                 onClick={() => handleExport("json", byArea)}
+                title={`Exporta todas as ${areaCount} chaves da área "${area}", ignorando a busca textual.`}
               >
                 <Download className="mr-2 size-4" />
-                JSON da área “{area}”
+                JSON completo da área “{area}” ({areaCount})
               </Button>
               <Button
                 type="button"
                 variant="default"
                 size="sm"
                 onClick={() => handleExport("csv", byArea)}
+                title={`Exporta todas as ${areaCount} chaves da área "${area}", ignorando a busca textual.`}
               >
                 <Download className="mr-2 size-4" />
-                CSV da área “{area}”
+                CSV completo da área “{area}” ({areaCount})
               </Button>
             </>
           )}
