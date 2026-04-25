@@ -92,7 +92,7 @@ const Configuracoes = () => {
         timezone,
         telegram_bot_token: telegramBotToken || null,
         telegram_chat_id: telegramChatId || null,
-      } as Record<string, unknown>,
+      },
       { onConflict: "user_id" },
     );
 
