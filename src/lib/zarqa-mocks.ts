@@ -12,10 +12,10 @@ export const upcomingAppointments = [
 ];
 
 export const upcomingBills = [
-  { id: "bill-1", description: "Condomínio Vila Nova", amount: 2850, dueDate: "2026-04-03", status: "pendente" },
-  { id: "bill-2", description: "Plano de saúde premium", amount: 1940, dueDate: "2026-04-04", status: "pendente" },
-  { id: "bill-3", description: "IPTU apartamento", amount: 3120, dueDate: "2026-04-06", status: "atrasado" },
-  { id: "bill-4", description: "Escola - parcela", amount: 1680, dueDate: "2026-04-07", status: "pago" },
+  { id: "bill-1", description: "Condomínio Vila Nova", amount: 2850, dueDate: "2026-05-03", status: "pendente" },
+  { id: "bill-2", description: "Plano de saúde premium", amount: 1940, dueDate: "2026-05-04", status: "pendente" },
+  { id: "bill-3", description: "IPTU apartamento", amount: 3120, dueDate: "2026-05-06", status: "atrasado" },
+  { id: "bill-4", description: "Escola - parcela", amount: 1680, dueDate: "2026-05-07", status: "pago" },
 ];
 
 export const activeAlerts: Array<{ id: string; module: string; message: string; priority: Priority }> = [
@@ -94,7 +94,9 @@ export function formatCurrency(value: number) {
 }
 
 export function formatDate(date: string) {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(date));
+  // Append noon time to avoid UTC-to-local day shift for Brazilian users (UTC-3)
+  const normalized = date.length === 10 ? `${date}T12:00:00` : date;
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(normalized));
 }
 
 export function formatDateTime(date: string) {

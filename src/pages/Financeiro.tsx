@@ -239,10 +239,7 @@ const Financeiro = () => {
   }, [financeData]);
 
   const reconciliationCompletion = useMemo(
-    () => {
-      const source = reconciliation.length > 0 ? reconciliation : defaultReconciliation;
-      return Math.round(source.reduce((sum, item) => sum + item.progress_pct, 0) / source.length);
-    },
+    () => Math.round(reconciliation.reduce((sum, item) => sum + item.progress_pct, 0) / reconciliation.length),
     [reconciliation],
   );
 
