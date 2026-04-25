@@ -193,9 +193,10 @@ const Chat = () => {
         (payload) => {
           const row = payload.new as { id: string; role: string; content: string; created_at: string };
           if (!isValidMessageRole(row.role)) return;
+          const role: MessageRow["role"] = row.role;
           setMessages((current) => {
             if (current.some((m) => m.id === row.id)) return current;
-            const next: MessageRow = { id: row.id, role: row.role, content: row.content, created_at: row.created_at };
+            const next: MessageRow = { id: row.id, role, content: row.content, created_at: row.created_at };
             return [...current, next];
           });
         },
