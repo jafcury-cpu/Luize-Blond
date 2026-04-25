@@ -99,12 +99,19 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<WebhookStatus>("idle");
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const previousScrollHeightRef = useRef<number>(0);
 
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
@@ -132,6 +139,7 @@ const Chat = () => {
     }
   }, []);
 
+  // Initial load: latest PAGE_SIZE messages + settings
   useEffect(() => {
     if (!user) return;
 
@@ -139,14 +147,23 @@ const Chat = () => {
       setLoading(true);
 
       const [{ data: messageRows, error: messagesError }, { data: settingsRow, error: settingsError }] = await Promise.all([
-        supabase.from("messages").select("id, role, content, created_at").eq("user_id", user.id).order("created_at", { ascending: true }),
+        supabase
+          .from("messages")
+          .select("id, role, content, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(PAGE_SIZE + 1),
         supabase.from("settings").select("webhook_url").eq("user_id", user.id).maybeSingle(),
       ]);
 
       if (messagesError) {
         toast({ variant: "destructive", title: "Falha ao carregar chat", description: messagesError.message });
       } else {
-        setMessages(sanitizeMessages(messageRows as Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined));
+        const rows = (messageRows ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+        const more = rows.length > PAGE_SIZE;
+        const slice = more ? rows.slice(0, PAGE_SIZE) : rows;
+        setMessages(sanitizeMessages(slice.reverse()));
+        setHasMore(more);
       }
 
       const url = !settingsError ? settingsRow?.webhook_url ?? null : null;
@@ -164,9 +181,133 @@ const Chat = () => {
     void load();
   }, [toast, user, checkWebhook]);
 
+  // Realtime: keep history in sync across tabs/devices for the current user
   useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`messages:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { id: string; role: string; content: string; created_at: string };
+          if (!isValidMessageRole(row.role)) return;
+          setMessages((current) => {
+            if (current.some((m) => m.id === row.id)) return current;
+            return [...current, { id: row.id, role: row.role, content: row.content, created_at: row.created_at }];
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const oldRow = payload.old as { id?: string };
+          if (oldRow?.id) {
+            setMessages((current) => current.filter((m) => m.id !== oldRow.id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Auto-scroll to bottom on new messages (skip when user just loaded older ones)
+  useEffect(() => {
+    if (loadingMore) return;
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+  }, [messages, sending, loadingMore]);
+
+  // Preserve scroll position when prepending older messages
+  useEffect(() => {
+    if (!loadingMore || !scrollRef.current) return;
+    const container = scrollRef.current;
+    container.scrollTop = container.scrollHeight - previousScrollHeightRef.current;
+  }, [messages, loadingMore]);
+
+  const loadOlder = useCallback(async () => {
+    if (!user || !hasMore || loadingMore || messages.length === 0) return;
+    setLoadingMore(true);
+    if (scrollRef.current) {
+      previousScrollHeightRef.current = scrollRef.current.scrollHeight;
+    }
+    const oldest = messages[0];
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, role, content, created_at")
+      .eq("user_id", user.id)
+      .lt("created_at", oldest.created_at)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE + 1);
+
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao carregar histórico", description: error.message });
+      setLoadingMore(false);
+      return;
+    }
+    const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+    const more = rows.length > PAGE_SIZE;
+    const slice = (more ? rows.slice(0, PAGE_SIZE) : rows).reverse();
+    setMessages((current) => [...sanitizeMessages(slice), ...current]);
+    setHasMore(more);
+    setLoadingMore(false);
+  }, [user, hasMore, loadingMore, messages, toast]);
+
+  const handleClearHistory = useCallback(async () => {
+    if (!user || clearing) return;
+    setClearing(true);
+    const { error } = await supabase.from("messages").delete().eq("user_id", user.id);
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao limpar histórico", description: error.message });
+    } else {
+      setMessages([]);
+      setHasMore(false);
+      toast({ title: "Histórico limpo", description: "Todas as mensagens foram removidas." });
+    }
+    setClearing(false);
+    setConfirmClearOpen(false);
+  }, [user, clearing, toast]);
+
+  const handleExport = useCallback(async () => {
+    if (!user || exporting) return;
+    setExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("id, role, content, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const payload = {
+        exported_at: new Date().toISOString(),
+        user_id: user.id,
+        count: data?.length ?? 0,
+        messages: data ?? [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `luize-chat-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Histórico exportado", description: `${payload.count} mensagens baixadas.` });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Falha ao exportar",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [user, exporting, toast]);
 
   const renderedMessages = useMemo(() => (messages.length ? messages : [fallbackWelcome]), [messages]);
 
