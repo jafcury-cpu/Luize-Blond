@@ -671,4 +671,138 @@ describe("i18n-export", () => {
       expect(reExpBytes[i]).toBe(bytes[i]);
     }
   });
+
+  it("round-trip CSV em UTF-8 com CRLF: bytes permanecem idênticos", () => {
+    // Parser CSV (RFC4180-ish) que lida com CRLF, LF, aspas escapadas e
+    // quebras de linha dentro de campos quoted.
+    function parseCsv(text: string): string[][] {
+      const rows: string[][] = [];
+      let cur: string[] = [];
+      let field = "";
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+          if (ch === '"' && text[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else if (ch === '"') {
+            inQuotes = false;
+          } else {
+            field += ch;
+          }
+        } else if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          cur.push(field);
+          field = "";
+        } else if (ch === "\r" && text[i + 1] === "\n") {
+          // CRLF como separador de linha (somente fora de aspas)
+          cur.push(field);
+          rows.push(cur);
+          cur = [];
+          field = "";
+          i++;
+        } else if (ch === "\n") {
+          cur.push(field);
+          rows.push(cur);
+          cur = [];
+          field = "";
+        } else {
+          field += ch;
+        }
+      }
+      if (field.length > 0 || cur.length > 0) {
+        cur.push(field);
+        rows.push(cur);
+      }
+      return rows;
+    }
+
+    // Converte separadores de linha LF→CRLF SEM tocar em \n dentro de campos
+    // quoted (preservando integridade do conteúdo).
+    function toCrlf(csv: string): string {
+      let out = "";
+      let inQuotes = false;
+      for (let i = 0; i < csv.length; i++) {
+        const ch = csv[i];
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+          out += ch;
+        } else if (ch === "\n" && !inQuotes) {
+          out += "\r\n";
+        } else {
+          out += ch;
+        }
+      }
+      return out;
+    }
+
+    const tricky: [string, string][] = [
+      ["brand.name", "Ação, “Coração” e açaí"],
+      ["common.save", "salvar ٢٨ vezes 🚀, agora"],
+      [
+        "dashboard.eyebrow.briefing",
+        // Inclui \n DENTRO do value para garantir que CRLF apenas afeta
+        // separadores de linha, nunca o conteúdo do campo.
+        "résumé — “diário”, ٢٨/٠٤\nlinha µ × ©",
+      ],
+    ];
+
+    const out = buildI18nExport("csv", tricky as never);
+    const crlfCsv = toCrlf(out.content);
+
+    // 1) Sanity: contém CRLF como separador e o LF interno (campo) intacto
+    expect(crlfCsv).toContain("\r\n");
+    expect(crlfCsv).toContain("résumé — “diário”, ٢٨/٠٤\nlinha µ × ©");
+    // Nenhum CRLF deve ter sido inserido dentro do campo quoted
+    expect(crlfCsv).not.toContain("٢٨/٠٤\r\nlinha");
+
+    // 2) UTF-8 round-trip dos bytes (encode→decode→encode) é byte-idêntico
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    const bytes = encoder.encode(crlfCsv);
+    const decoded = decoder.decode(bytes);
+    expect(decoded).toBe(crlfCsv);
+    const reBytes = encoder.encode(decoded);
+    expect(reBytes.length).toBe(bytes.length);
+    for (let i = 0; i < bytes.length; i++) {
+      expect(reBytes[i]).toBe(bytes[i]);
+    }
+
+    // 3) Reimporta o CSV CRLF e valida key/area/value preservados
+    const rows = parseCsv(decoded);
+    expect(rows[0]).toEqual(["key", "area", "value"]);
+    const body = rows.slice(1);
+    expect(body).toHaveLength(tricky.length);
+    for (let i = 0; i < tricky.length; i++) {
+      const [origKey, origValue] = tricky[i];
+      const [reKey, reArea, reValue] = body[i];
+      expect(reKey).toBe(origKey);
+      expect(reArea).toBe(origKey.split(".")[0]);
+      expect(reValue).toBe(origValue);
+
+      // Comparação byte-a-byte do value em UTF-8
+      const a = encoder.encode(reValue);
+      const b = encoder.encode(origValue);
+      expect(a.length).toBe(b.length);
+      for (let j = 0; j < a.length; j++) {
+        expect(a[j]).toBe(b[j]);
+      }
+    }
+
+    // 4) Re-exportar a partir do reimportado e re-aplicar CRLF gera
+    //    bytes idênticos ao CSV CRLF original.
+    const reTuples: [string, string][] = body.map(
+      ([k, , v]) => [k, v] as [string, string],
+    );
+    const reExportedLf = buildI18nExport("csv", reTuples as never).content;
+    const reExportedCrlf = toCrlf(reExportedLf);
+    expect(reExportedCrlf).toBe(crlfCsv);
+    const reExportedBytes = encoder.encode(reExportedCrlf);
+    expect(reExportedBytes.length).toBe(bytes.length);
+    for (let i = 0; i < bytes.length; i++) {
+      expect(reExportedBytes[i]).toBe(bytes[i]);
+    }
+  });
 });
