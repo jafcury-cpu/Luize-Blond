@@ -62,6 +62,7 @@ export default function I18nPreview() {
   useDocumentTitle("Dicionário i18n");
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<string>("__all__");
+  const [combineSearch, setCombineSearch] = useState<boolean>(true);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const selectedOccurrences = useMemo(
