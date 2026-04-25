@@ -189,6 +189,12 @@ Deno.serve(async (req) => {
     }
 
     if (!settingsRow?.webhook_url) {
+      if (parsedBody.data.mode === "ping") {
+        return new Response(
+          JSON.stringify({ status: "not_configured", message: "Webhook ainda não configurado." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       return new Response(
         JSON.stringify({
           reply: "Webhook ainda não configurado. Defina a URL em Configurações para ativar respostas do n8n.",
@@ -201,6 +207,46 @@ Deno.serve(async (req) => {
     }
 
     const webhookUrl = validateWebhookUrl(settingsRow.webhook_url);
+
+    if (parsedBody.data.mode === "ping") {
+      const startedAt = Date.now();
+      try {
+        const pingResponse = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ping: true, userId, source: "luize-chat-healthcheck" }),
+          signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+        });
+        await pingResponse.text().catch(() => "");
+        const latency = Date.now() - startedAt;
+        if (!pingResponse.ok) {
+          return new Response(
+            JSON.stringify({
+              status: "offline",
+              httpStatus: pingResponse.status,
+              latencyMs: latency,
+              message: `Webhook retornou ${pingResponse.status}.`,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({ status: "online", httpStatus: pingResponse.status, latencyMs: latency }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (pingError) {
+        const isTimeout = pingError instanceof DOMException && pingError.name === "TimeoutError";
+        return new Response(
+          JSON.stringify({
+            status: isTimeout ? "timeout" : "offline",
+            latencyMs: Date.now() - startedAt,
+            message: pingError instanceof Error ? pingError.message : "Falha ao contactar webhook.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     const { message, history, source } = parsedBody.data;
     const response = await fetch(webhookUrl, {
       method: "POST",
