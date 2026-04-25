@@ -460,7 +460,22 @@ const Chat = () => {
         }
       >
         <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel-elevated">
-          <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
+          <div ref={scrollRef} className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
+            {hasMore && !loading ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { void loadOlder(); }}
+                  disabled={loadingMore}
+                  className="h-8 gap-1.5"
+                >
+                  <ChevronUp className={`size-3.5 ${loadingMore ? "animate-pulse" : ""}`} />
+                  {loadingMore ? "Carregando..." : "Carregar mensagens antigas"}
+                </Button>
+              </div>
+            ) : null}
             {loading ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className="max-w-[80%] rounded-2xl border border-border bg-panel px-4 py-3">
