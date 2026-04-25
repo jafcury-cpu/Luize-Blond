@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/zarqa-cloud-data";
 import { BankAccountFormDialog } from "@/components/zarqa/bank-account-form-dialog";
 import { CreditCardFormDialog } from "@/components/zarqa/credit-card-form-dialog";
