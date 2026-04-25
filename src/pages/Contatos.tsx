@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { supabase } from "@/integrations/supabase/client";
@@ -166,7 +167,7 @@ const Contatos = () => {
       </div>
 
       {/* Upcoming dates */}
-      <SectionCard title="Próximas Datas" description="Aniversários e datas importantes nos próximos 90 dias" eyebrow="Lembretes">
+      <SectionCard title="Próximas Datas" description="Aniversários e datas importantes nos próximos 90 dias" eyebrow={t("contatos.eyebrow.reminders")}>
         <div className="mb-3 flex justify-end">
           <ImportantDateFormDialog contacts={contacts} onSaved={reloadAll} />
         </div>
@@ -200,7 +201,7 @@ const Contatos = () => {
       </SectionCard>
 
       {/* Contacts list */}
-      <SectionCard title="Agenda de Contatos" description="Organizado por membro da família e assunto" eyebrow="Contatos">
+      <SectionCard title="Agenda de Contatos" description="Organizado por membro da família e assunto" eyebrow={t("contatos.eyebrow.contacts")}>
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Input
             value={search}

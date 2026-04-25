@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Activity, ArrowUpRight, CalendarClock, FileWarning, Siren, WalletCards } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
@@ -97,7 +98,7 @@ const Dashboard = () => {
         <SectionCard
           title="Briefing do Dia"
           description="Síntese executiva com prioridades, riscos e agenda"
-          eyebrow="Briefing diário"
+          eyebrow={t("dashboard.eyebrow.briefing")}
           className="xl:col-span-5"
           action={<Badge variant="info">Atualização 07:00</Badge>}
         >
@@ -108,7 +109,7 @@ const Dashboard = () => {
         <SectionCard
           title="Próximos Compromissos"
           description="Top 5 compromissos priorizados"
-          eyebrow="Agenda"
+          eyebrow={t("dashboard.eyebrow.agenda")}
           className="xl:col-span-4"
         >
           {/* TODO: conectar com n8n webhook */}
@@ -128,7 +129,7 @@ const Dashboard = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="Alertas Ativos" description="Sinais operacionais abertos" eyebrow="Radar de risco" className="xl:col-span-3">
+        <SectionCard title="Alertas Ativos" description="Sinais operacionais abertos" eyebrow={t("dashboard.eyebrow.riskRadar")} className="xl:col-span-3">
           {/* TODO: conectar com n8n webhook */}
           <div className="space-y-3">
              {dashboardData.activeAlerts.map((alert) => (
@@ -146,7 +147,7 @@ const Dashboard = () => {
         <SectionCard
           title="Contas a Vencer"
           description="Vencimentos em horizonte imediato"
-          eyebrow="Pressão de caixa"
+          eyebrow={t("dashboard.eyebrow.cashPressure")}
           className="xl:col-span-6"
         >
           {/* TODO: conectar com n8n webhook */}
@@ -167,7 +168,7 @@ const Dashboard = () => {
         <SectionCard
           title="Score de Saúde"
           description="Leitura consolidada do dia"
-          eyebrow="Telemetria de saúde"
+          eyebrow={t("dashboard.eyebrow.healthTelemetry")}
           className="xl:col-span-3"
           action={<Activity className="size-4 text-accent-blue" />}
         >
@@ -190,7 +191,7 @@ const Dashboard = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="Pulse de Operação" description="Indicadores rápidos de leitura" eyebrow="Pulso executivo" className="xl:col-span-3">
+        <SectionCard title="Pulse de Operação" description="Indicadores rápidos de leitura" eyebrow={t("dashboard.eyebrow.executivePulse")} className="xl:col-span-3">
           <div className="grid gap-3">
             <div className="rounded-xl border border-border bg-panel-elevated p-4">
               <div className="flex items-center gap-3">
