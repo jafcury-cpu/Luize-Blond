@@ -80,6 +80,24 @@ export default function I18nPreview() {
   const total = allEntries.length;
   const showing = filtered.length;
 
+  function handleExport(
+    format: ExportFormat,
+    entries?: ReadonlyArray<readonly [string, string]>,
+  ) {
+    try {
+      const out = buildI18nExport(format, entries);
+      downloadFile(out.filename, out.content, out.mime);
+      toast.success(
+        `Exportado ${out.totalKeys} chave${out.totalKeys === 1 ? "" : "s"} (${format.toUpperCase()}).`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Erro desconhecido ao exportar.";
+      toast.error("Falha ao exportar dicionário", { description: message });
+      if (import.meta.env?.DEV) console.error("[i18n-export]", err);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background px-4 py-8 md:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
