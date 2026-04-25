@@ -66,6 +66,18 @@ function getFriendlyWebhookError(error: unknown) {
   return error instanceof Error ? error.message : "A resposta não pôde ser concluída.";
 }
 
+type WebhookStatus = "idle" | "checking" | "online" | "offline" | "timeout" | "not_configured" | "invalid";
+
+const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string }> = {
+  idle: { variant: "secondary", label: "Aguardando verificação" },
+  checking: { variant: "secondary", label: "Verificando conexão..." },
+  online: { variant: "success", label: "Webhook online" },
+  offline: { variant: "destructive", label: "Webhook offline" },
+  timeout: { variant: "destructive", label: "Webhook sem resposta" },
+  not_configured: { variant: "warning", label: "Webhook não configurado" },
+  invalid: { variant: "destructive", label: "Webhook inválido" },
+};
+
 const Chat = () => {
   useDocumentTitle("Chat");
   const { user } = useAuth();
@@ -75,7 +87,37 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<WebhookStatus>("idle");
+  const [statusDetail, setStatusDetail] = useState<string | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+
+  const checkWebhook = useCallback(async () => {
+    setStatus("checking");
+    setStatusDetail(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("chat-webhook", {
+        body: { mode: "ping" },
+      });
+      if (error) {
+        setStatus("offline");
+        setStatusDetail(getFriendlyWebhookError(error));
+        setLatencyMs(null);
+        return;
+      }
+      const next = (data?.status as WebhookStatus | undefined) ?? "offline";
+      setStatus(next);
+      setStatusDetail(typeof data?.message === "string" ? data.message : null);
+      setLatencyMs(typeof data?.latencyMs === "number" ? data.latencyMs : null);
+    } catch (error) {
+      setStatus("offline");
+      setStatusDetail(getFriendlyWebhookError(error));
+      setLatencyMs(null);
+    } finally {
+      setLastCheckedAt(new Date());
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -94,15 +136,20 @@ const Chat = () => {
         setMessages(sanitizeMessages(messageRows as Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined));
       }
 
-      if (!settingsError) {
-        setWebhookUrl(settingsRow?.webhook_url ?? null);
-      }
-
+      const url = !settingsError ? settingsRow?.webhook_url ?? null : null;
+      setWebhookUrl(url);
       setLoading(false);
+
+      if (url) {
+        void checkWebhook();
+      } else {
+        setStatus("not_configured");
+        setLastCheckedAt(new Date());
+      }
     };
 
     void load();
-  }, [toast, user]);
+  }, [toast, user, checkWebhook]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
