@@ -347,7 +347,15 @@ export default function I18nPreview() {
             <Download className="mr-2 size-4" />
             Tudo (CSV)
           </Button>
-
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => handleExportXlsx()}
+          >
+            <Download className="mr-2 size-4" />
+            Tudo (XLSX)
+          </Button>
           <span className="self-center text-xs text-muted-foreground">
             Visível: {filtered.length}
             {area !== "__all__" ? ` · Área: ${areaCount}` : ""} · Total: {total}
