@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { dictionary, t } from "@/lib/i18n";
 import { getUsage, getUsageCount } from "@/lib/i18n-usage";
@@ -60,6 +62,7 @@ export default function I18nPreview() {
   useDocumentTitle("Dicionário i18n");
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<string>("__all__");
+  const [combineSearch, setCombineSearch] = useState<boolean>(true);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const selectedOccurrences = useMemo(
@@ -97,11 +100,12 @@ export default function I18nPreview() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return byArea;
+    if (!combineSearch) return byArea;
     return byArea.filter(
       ([key, value]) =>
         key.toLowerCase().includes(q) || value.toLowerCase().includes(q),
     );
-  }, [byArea, query]);
+  }, [byArea, query, combineSearch]);
 
   const groups = useMemo(() => groupByArea(filtered), [filtered]);
   const total = allEntries.length;
@@ -167,6 +171,26 @@ export default function I18nPreview() {
               ))}
             </SelectContent>
           </Select>
+
+          <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
+            <Switch
+              id="combine-search"
+              checked={combineSearch}
+              onCheckedChange={setCombineSearch}
+              aria-label="Combinar busca textual com filtro de área"
+            />
+            <Label
+              htmlFor="combine-search"
+              className="cursor-pointer text-xs text-muted-foreground"
+              title={
+                combineSearch
+                  ? "Busca textual está sendo combinada com o filtro de área."
+                  : "Filtro de área ignora a busca textual atual."
+              }
+            >
+              {combineSearch ? "Combinar busca + área" : "Ignorar busca textual"}
+            </Label>
+          </div>
 
           <Button
             type="button"
