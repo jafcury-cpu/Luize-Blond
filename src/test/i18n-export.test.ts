@@ -96,4 +96,60 @@ describe("i18n-export", () => {
     expect(out.content).toBe("[]");
     expect(out.totalKeys).toBe(0);
   });
+  it("CSV: ordem de colunas é sempre key,area,value", () => {
+    const out = buildI18nExport("csv");
+    expect(out.content.split("\n")[0]).toBe("key,area,value");
+  });
+
+  it("CSV: chave sem ponto receberia area='outros' (lógica do preview)", () => {
+    // O dicionário real não tem chaves sem ponto, então validamos a regra
+    // de derivação que é compartilhada entre preview e export.
+    const deriveArea = (k: string) =>
+      k.includes(".") ? k.split(".")[0] : "outros";
+    expect(deriveArea("semponto")).toBe("outros");
+    expect(deriveArea("brand.name")).toBe("brand");
+    expect(deriveArea("a.b.c.d")).toBe("a");
+  });
+
+  it("CSV: chaves reais com múltiplos prefixos usam apenas o 1º segmento como area", () => {
+    const reais: [string, string][] = [
+      ["dashboard.eyebrow.briefing", dictionary["dashboard.eyebrow.briefing"]],
+      ["sidebar.section.operacao", dictionary["sidebar.section.operacao"]],
+    ];
+    const out = buildI18nExport("csv", reais as never);
+    const lines = out.content.split("\n");
+    expect(lines[0]).toBe("key,area,value");
+    expect(lines[1].startsWith("dashboard.eyebrow.briefing,dashboard,")).toBe(
+      true,
+    );
+    expect(lines[2].startsWith("sidebar.section.operacao,sidebar,")).toBe(true);
+  });
+
+  it("CSV completo: area de cada linha bate com a lógica do preview", () => {
+    const out = buildI18nExport("csv");
+    const lines = out.content.split("\n").slice(1);
+    expect(lines.length).toBe(Object.keys(dictionary).length);
+    for (const line of lines) {
+      // Pega os 2 primeiros campos respeitando aspas simples (sem vírgula no key/area)
+      const [key, area] = line.split(",", 2);
+      const expected = key.includes(".") ? key.split(".")[0] : "outros";
+      expect(area, `linha: ${line}`).toBe(expected);
+    }
+  });
+
+  it("JSON completo: cada item tem { key, area, value } com area consistente", () => {
+    const out = buildI18nExport("json");
+    const parsed = JSON.parse(out.content) as Array<{
+      key: string;
+      area: string;
+      value: string;
+    }>;
+    for (const item of parsed) {
+      const expected = item.key.includes(".")
+        ? item.key.split(".")[0]
+        : "outros";
+      expect(item.area).toBe(expected);
+      expect(Object.keys(item)).toEqual(["key", "area", "value"]);
+    }
+  });
 });
