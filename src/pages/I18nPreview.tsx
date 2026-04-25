@@ -100,11 +100,12 @@ export default function I18nPreview() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return byArea;
+    if (!combineSearch) return byArea;
     return byArea.filter(
       ([key, value]) =>
         key.toLowerCase().includes(q) || value.toLowerCase().includes(q),
     );
-  }, [byArea, query]);
+  }, [byArea, query, combineSearch]);
 
   const groups = useMemo(() => groupByArea(filtered), [filtered]);
   const total = allEntries.length;
