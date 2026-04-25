@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { act } from "react";
 import { BRAND, SITE_DESCRIPTION, useDocumentTitle } from "@/hooks/use-document-title";
 
 function ensureMeta(selector: string, attr: "name" | "property", key: string) {
