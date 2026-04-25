@@ -195,7 +195,8 @@ const Chat = () => {
           if (!isValidMessageRole(row.role)) return;
           setMessages((current) => {
             if (current.some((m) => m.id === row.id)) return current;
-            return [...current, { id: row.id, role: row.role, content: row.content, created_at: row.created_at }];
+            const next: MessageRow = { id: row.id, role: row.role, content: row.content, created_at: row.created_at };
+            return [...current, next];
           });
         },
       )
