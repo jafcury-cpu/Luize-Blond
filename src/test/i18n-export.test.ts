@@ -335,4 +335,62 @@ describe("i18n-export", () => {
       expect(jsonSub[i].value).toBe(tricky[i][1]);
     }
   });
+
+  it("round-trip JSON: exportar → reimportar preserva key, area e value", () => {
+    // 1) Export completo
+    const out = buildI18nExport("json");
+    const exported = JSON.parse(out.content) as Array<{
+      key: string;
+      area: string;
+      value: string;
+    }>;
+
+    // 2) "Reimporta": serializa de volta e parseia novamente (round-trip real)
+    const reSerialized = JSON.stringify(exported);
+    const reimported = JSON.parse(reSerialized) as Array<{
+      key: string;
+      area: string;
+      value: string;
+    }>;
+
+    // 3) Mesma quantidade e mesma ordem
+    expect(reimported).toHaveLength(exported.length);
+    expect(reimported.map((i) => i.key)).toEqual(exported.map((i) => i.key));
+
+    // 4) Cada item bate em key, area e value
+    for (let i = 0; i < exported.length; i++) {
+      expect(reimported[i]).toEqual(exported[i]);
+      expect(Object.keys(reimported[i])).toEqual(["key", "area", "value"]);
+    }
+
+    // 5) Reimportado bate com o dicionário fonte (paridade com fonte da verdade)
+    const dictMap = dictionary as Record<string, string>;
+    for (const item of reimported) {
+      expect(item.value).toBe(dictMap[item.key]);
+      const expectedArea = item.key.includes(".")
+        ? item.key.split(".")[0]
+        : "outros";
+      expect(item.area).toBe(expectedArea);
+    }
+
+    // 6) Round-trip com caracteres tricky (vírgulas, aspas, \n, \t)
+    const tricky: [string, string][] = [
+      ["brand.name", 'Luize, "a Luize"\nlinha 2'],
+      ["common.save", "salvar\tagora"],
+      ["dashboard.eyebrow.briefing", 'briefing\ncom "aspas", e vírgulas'],
+    ];
+    const trickyOut = buildI18nExport("json", tricky as never);
+    const trickyReimported = JSON.parse(trickyOut.content) as Array<{
+      key: string;
+      area: string;
+      value: string;
+    }>;
+    const trickyRoundTripped = JSON.parse(JSON.stringify(trickyReimported));
+    expect(trickyRoundTripped).toEqual(trickyReimported);
+    for (let i = 0; i < tricky.length; i++) {
+      expect(trickyRoundTripped[i].key).toBe(tricky[i][0]);
+      expect(trickyRoundTripped[i].value).toBe(tricky[i][1]);
+      expect(trickyRoundTripped[i].area).toBe(tricky[i][0].split(".")[0]);
+    }
+  });
 });
