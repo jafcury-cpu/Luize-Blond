@@ -13,13 +13,9 @@ import {
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { dictionary, t } from "@/lib/i18n";
 import { getUsage, getUsageCount } from "@/lib/i18n-usage";
+import { buildI18nExport, type ExportFormat } from "@/lib/i18n-export";
+import { toast } from "sonner";
 
-function escapeCsvField(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
 
 function downloadFile(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
@@ -84,6 +80,24 @@ export default function I18nPreview() {
   const total = allEntries.length;
   const showing = filtered.length;
 
+  function handleExport(
+    format: ExportFormat,
+    entries?: ReadonlyArray<readonly [string, string]>,
+  ) {
+    try {
+      const out = buildI18nExport(format, entries);
+      downloadFile(out.filename, out.content, out.mime);
+      toast.success(
+        `Exportado ${out.totalKeys} chave${out.totalKeys === 1 ? "" : "s"} (${format.toUpperCase()}).`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Erro desconhecido ao exportar.";
+      toast.error("Falha ao exportar dicionário", { description: message });
+      if (import.meta.env?.DEV) console.error("[i18n-export]", err);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background px-4 py-8 md:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -104,14 +118,7 @@ export default function I18nPreview() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => {
-              const payload = JSON.stringify(
-                Object.fromEntries(filtered),
-                null,
-                2,
-              );
-              downloadFile("luize-i18n.json", payload, "application/json");
-            }}
+            onClick={() => handleExport("json", filtered)}
           >
             <Download className="mr-2 size-4" />
             Exportar JSON
@@ -120,14 +127,7 @@ export default function I18nPreview() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => {
-              const header = "key,value";
-              const rows = filtered.map(
-                ([key, value]) => `${escapeCsvField(key)},${escapeCsvField(value)}`,
-              );
-              const csv = [header, ...rows].join("\n");
-              downloadFile("luize-i18n.csv", csv, "text/csv");
-            }}
+            onClick={() => handleExport("csv", filtered)}
           >
             <Download className="mr-2 size-4" />
             Exportar CSV
@@ -136,10 +136,7 @@ export default function I18nPreview() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => {
-              const payload = JSON.stringify(dictionary, null, 2);
-              downloadFile("luize-i18n-completo.json", payload, "application/json");
-            }}
+            onClick={() => handleExport("json")}
           >
             <Download className="mr-2 size-4" />
             Exportar tudo (JSON)
@@ -148,14 +145,7 @@ export default function I18nPreview() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => {
-              const header = "key,value";
-              const rows = allEntries.map(
-                ([key, value]) => `${escapeCsvField(key)},${escapeCsvField(value)}`,
-              );
-              const csv = [header, ...rows].join("\n");
-              downloadFile("luize-i18n-completo.csv", csv, "text/csv");
-            }}
+            onClick={() => handleExport("csv")}
           >
             <Download className="mr-2 size-4" />
             Exportar tudo (CSV)
