@@ -76,11 +76,14 @@ export default function I18nPreview() {
   );
 
   const areas = useMemo(() => {
-    const set = new Set<string>();
+    const counts = new Map<string, number>();
     for (const [key] of allEntries) {
-      set.add(key.includes(".") ? key.split(".")[0] : "outros");
+      const a = key.includes(".") ? key.split(".")[0] : "outros";
+      counts.set(a, (counts.get(a) ?? 0) + 1);
     }
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...counts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, count]) => ({ name, count }));
   }, [allEntries]);
 
   const byArea = useMemo(() => {
