@@ -1,16 +1,29 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, SendHorizontal } from "lucide-react";
+import { ChevronUp, Download, RefreshCw, SendHorizontal, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime } from "@/lib/luize-mocks";
+
+const PAGE_SIZE = 200;
 
 type MessageRow = {
   id: string;
@@ -86,12 +99,19 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<WebhookStatus>("idle");
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const previousScrollHeightRef = useRef<number>(0);
 
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
@@ -119,6 +139,7 @@ const Chat = () => {
     }
   }, []);
 
+  // Initial load: latest PAGE_SIZE messages + settings
   useEffect(() => {
     if (!user) return;
 
@@ -126,14 +147,23 @@ const Chat = () => {
       setLoading(true);
 
       const [{ data: messageRows, error: messagesError }, { data: settingsRow, error: settingsError }] = await Promise.all([
-        supabase.from("messages").select("id, role, content, created_at").eq("user_id", user.id).order("created_at", { ascending: true }),
+        supabase
+          .from("messages")
+          .select("id, role, content, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(PAGE_SIZE + 1),
         supabase.from("settings").select("webhook_url").eq("user_id", user.id).maybeSingle(),
       ]);
 
       if (messagesError) {
         toast({ variant: "destructive", title: "Falha ao carregar chat", description: messagesError.message });
       } else {
-        setMessages(sanitizeMessages(messageRows as Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined));
+        const rows = (messageRows ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+        const more = rows.length > PAGE_SIZE;
+        const slice = more ? rows.slice(0, PAGE_SIZE) : rows;
+        setMessages(sanitizeMessages(slice.reverse()));
+        setHasMore(more);
       }
 
       const url = !settingsError ? settingsRow?.webhook_url ?? null : null;
@@ -151,9 +181,135 @@ const Chat = () => {
     void load();
   }, [toast, user, checkWebhook]);
 
+  // Realtime: keep history in sync across tabs/devices for the current user
   useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`messages:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { id: string; role: string; content: string; created_at: string };
+          if (!isValidMessageRole(row.role)) return;
+          const role: MessageRow["role"] = row.role;
+          setMessages((current) => {
+            if (current.some((m) => m.id === row.id)) return current;
+            const next: MessageRow = { id: row.id, role, content: row.content, created_at: row.created_at };
+            return [...current, next];
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const oldRow = payload.old as { id?: string };
+          if (oldRow?.id) {
+            setMessages((current) => current.filter((m) => m.id !== oldRow.id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Auto-scroll to bottom on new messages (skip when user just loaded older ones)
+  useEffect(() => {
+    if (loadingMore) return;
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+  }, [messages, sending, loadingMore]);
+
+  // Preserve scroll position when prepending older messages
+  useEffect(() => {
+    if (!loadingMore || !scrollRef.current) return;
+    const container = scrollRef.current;
+    container.scrollTop = container.scrollHeight - previousScrollHeightRef.current;
+  }, [messages, loadingMore]);
+
+  const loadOlder = useCallback(async () => {
+    if (!user || !hasMore || loadingMore || messages.length === 0) return;
+    setLoadingMore(true);
+    if (scrollRef.current) {
+      previousScrollHeightRef.current = scrollRef.current.scrollHeight;
+    }
+    const oldest = messages[0];
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, role, content, created_at")
+      .eq("user_id", user.id)
+      .lt("created_at", oldest.created_at)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE + 1);
+
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao carregar histórico", description: error.message });
+      setLoadingMore(false);
+      return;
+    }
+    const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+    const more = rows.length > PAGE_SIZE;
+    const slice = (more ? rows.slice(0, PAGE_SIZE) : rows).reverse();
+    setMessages((current) => [...sanitizeMessages(slice), ...current]);
+    setHasMore(more);
+    setLoadingMore(false);
+  }, [user, hasMore, loadingMore, messages, toast]);
+
+  const handleClearHistory = useCallback(async () => {
+    if (!user || clearing) return;
+    setClearing(true);
+    const { error } = await supabase.from("messages").delete().eq("user_id", user.id);
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao limpar histórico", description: error.message });
+    } else {
+      setMessages([]);
+      setHasMore(false);
+      toast({ title: "Histórico limpo", description: "Todas as mensagens foram removidas." });
+    }
+    setClearing(false);
+    setConfirmClearOpen(false);
+  }, [user, clearing, toast]);
+
+  const handleExport = useCallback(async () => {
+    if (!user || exporting) return;
+    setExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("id, role, content, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const payload = {
+        exported_at: new Date().toISOString(),
+        user_id: user.id,
+        count: data?.length ?? 0,
+        messages: data ?? [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `luize-chat-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Histórico exportado", description: `${payload.count} mensagens baixadas.` });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Falha ao exportar",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [user, exporting, toast]);
 
   const renderedMessages = useMemo(() => (messages.length ? messages : [fallbackWelcome]), [messages]);
 
@@ -238,7 +394,7 @@ const Chat = () => {
         className="min-h-[72vh]"
         contentClassName="flex h-full flex-col"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant={STATUS_BADGE[status].variant}>{STATUS_BADGE[status].label}</Badge>
             <Button
               type="button"
@@ -252,11 +408,74 @@ const Chat = () => {
               <RefreshCw className={`size-3.5 ${status === "checking" ? "animate-spin" : ""}`} />
               Testar
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { void handleExport(); }}
+              disabled={exporting || loading || messages.length === 0}
+              className="h-8 gap-1.5"
+              aria-label="Exportar histórico em JSON"
+            >
+              <Download className="size-3.5" />
+              {exporting ? "Exportando..." : "Exportar"}
+            </Button>
+            <AlertDialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={clearing || loading || messages.length === 0}
+                  className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Limpar histórico do chat"
+                >
+                  <Trash2 className="size-3.5" />
+                  Limpar
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Limpar todo o histórico?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação remove permanentemente todas as mensagens deste usuário no banco. Não há como desfazer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={clearing}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void handleClearHistory();
+                    }}
+                    disabled={clearing}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {clearing ? "Limpando..." : "Sim, limpar tudo"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         }
       >
         <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel-elevated">
-          <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
+          <div ref={scrollRef} className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
+            {hasMore && !loading ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { void loadOlder(); }}
+                  disabled={loadingMore}
+                  className="h-8 gap-1.5"
+                >
+                  <ChevronUp className={`size-3.5 ${loadingMore ? "animate-pulse" : ""}`} />
+                  {loadingMore ? "Carregando..." : "Carregar mensagens antigas"}
+                </Button>
+              </div>
+            ) : null}
             {loading ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className="max-w-[80%] rounded-2xl border border-border bg-panel px-4 py-3">
