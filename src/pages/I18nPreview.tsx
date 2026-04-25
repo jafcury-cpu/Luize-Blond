@@ -316,6 +316,16 @@ export default function I18nPreview() {
                 <Download className="mr-2 size-4" />
                 CSV completo da área “{area}” ({areaCount})
               </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => handleExportXlsx(byArea)}
+                title={`Exporta todas as ${areaCount} chaves da área "${area}" em XLSX, ignorando a busca textual.`}
+              >
+                <Download className="mr-2 size-4" />
+                XLSX completo da área “{area}” ({areaCount})
+              </Button>
             </>
           )}
 
