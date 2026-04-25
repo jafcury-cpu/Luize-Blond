@@ -76,11 +76,14 @@ export default function I18nPreview() {
   );
 
   const areas = useMemo(() => {
-    const set = new Set<string>();
+    const counts = new Map<string, number>();
     for (const [key] of allEntries) {
-      set.add(key.includes(".") ? key.split(".")[0] : "outros");
+      const a = key.includes(".") ? key.split(".")[0] : "outros";
+      counts.set(a, (counts.get(a) ?? 0) + 1);
     }
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...counts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, count]) => ({ name, count }));
   }, [allEntries]);
 
   const byArea = useMemo(() => {
@@ -139,15 +142,27 @@ export default function I18nPreview() {
         </header>
 
         <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="area-filter"
+            className="text-xs uppercase tracking-wider text-muted-foreground"
+          >
+            Área calculada:
+          </label>
           <Select value={area} onValueChange={setArea}>
-            <SelectTrigger className="h-9 w-[200px]" aria-label="Filtrar por área">
+            <SelectTrigger
+              id="area-filter"
+              className="h-9 w-[240px]"
+              aria-label="Filtrar por área calculada"
+            >
               <SelectValue placeholder="Área" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">Todas as áreas</SelectItem>
+              <SelectItem value="__all__">
+                Todas as áreas ({total})
+              </SelectItem>
               {areas.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
+                <SelectItem key={a.name} value={a.name}>
+                  {a.name} ({a.count})
                 </SelectItem>
               ))}
             </SelectContent>
