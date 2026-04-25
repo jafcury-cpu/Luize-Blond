@@ -3,8 +3,16 @@ import { Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { dictionary, t } from "@/lib/i18n";
+import { getUsage, getUsageCount } from "@/lib/i18n-usage";
 
 function escapeCsvField(value: string): string {
   if (/[",\n\r]/.test(value)) {
@@ -48,6 +56,15 @@ function groupByArea(entries: [string, string][]): Group[] {
 export default function I18nPreview() {
   useDocumentTitle("Dicionário i18n");
   const [query, setQuery] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const selectedOccurrences = useMemo(
+    () => (selectedKey ? getUsage(selectedKey) : []),
+    [selectedKey],
+  );
+  const selectedValue = selectedKey
+    ? (dictionary as Record<string, string>)[selectedKey]
+    : undefined;
 
   const allEntries = useMemo(
     () => Object.entries(dictionary) as [string, string][],
@@ -151,23 +168,84 @@ export default function I18nPreview() {
                   <Badge variant="outline">{group.entries.length}</Badge>
                 </header>
                 <ul className="divide-y divide-border">
-                  {group.entries.map(({ key, value }) => (
-                    <li
-                      key={key}
-                      className="grid gap-2 py-2 md:grid-cols-[minmax(220px,1fr)_2fr] md:items-baseline md:gap-6"
-                    >
-                      <code className="font-mono text-xs text-accent-blue break-all">
-                        {key}
-                      </code>
-                      <span className="text-sm text-foreground">{value}</span>
-                    </li>
-                  ))}
+                  {group.entries.map(({ key, value }) => {
+                    const usageCount = getUsageCount(key);
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedKey(key)}
+                          className="grid w-full gap-2 rounded py-2 text-left transition hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid-cols-[minmax(220px,1fr)_2fr_auto] md:items-baseline md:gap-6"
+                          aria-label={`Ver ocorrências de ${key}`}
+                        >
+                          <code className="font-mono text-xs text-accent-blue break-all">
+                            {key}
+                          </code>
+                          <span className="text-sm text-foreground">{value}</span>
+                          <Badge
+                            variant={usageCount === 0 ? "destructive" : "outline"}
+                            className="justify-self-start md:justify-self-end"
+                          >
+                            {usageCount} uso{usageCount === 1 ? "" : "s"}
+                          </Badge>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ))}
           </div>
         )}
       </div>
+
+      <Sheet
+        open={selectedKey !== null}
+        onOpenChange={(open) => !open && setSelectedKey(null)}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-xl">
+          <SheetHeader className="space-y-2">
+            <SheetTitle className="break-all font-mono text-sm text-accent-blue">
+              {selectedKey}
+            </SheetTitle>
+            <SheetDescription className="text-foreground">
+              {selectedValue ?? "(sem valor)"}
+            </SheetDescription>
+            <div className="pt-2">
+              <Badge variant="outline">
+                {selectedOccurrences.length} ocorrência
+                {selectedOccurrences.length === 1 ? "" : "s"}
+              </Badge>
+            </div>
+          </SheetHeader>
+
+          <div className="mt-6 max-h-[calc(100vh-12rem)] space-y-3 overflow-y-auto pr-2">
+            {selectedOccurrences.length === 0 ? (
+              <p className="rounded-md border border-dashed border-destructive/40 p-4 text-sm text-muted-foreground">
+                Nenhum uso encontrado em <code>src/</code>. A chave pode estar
+                órfã — considere remover do dicionário.
+              </p>
+            ) : (
+              selectedOccurrences.map((occ, idx) => (
+                <div
+                  key={`${occ.file}-${occ.line}-${idx}`}
+                  className="surface-panel space-y-1 p-3"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <code className="font-mono text-xs text-accent-blue break-all">
+                      {occ.file}
+                    </code>
+                    <Badge variant="outline">linha {occ.line}</Badge>
+                  </div>
+                  <pre className="overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+                    {occ.snippet}
+                  </pre>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
