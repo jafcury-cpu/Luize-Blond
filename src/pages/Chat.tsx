@@ -178,7 +178,7 @@ const Chat = () => {
       <SectionCard
         title="Canal direto com a Luize"
         description="Interface de chat persistida no banco e pronta para webhook externo"
-        eyebrow="Mensagens"
+        eyebrow={t("chat.eyebrow.messaging")}
         className="min-h-[72vh]"
         contentClassName="flex h-full flex-col"
         action={<Badge variant={webhookUrl ? "success" : "warning"}>{webhookUrl ? "Webhook ativo" : "Webhook pendente"}</Badge>}
@@ -240,7 +240,7 @@ const Chat = () => {
         </div>
       </SectionCard>
 
-      <SectionCard title="Roteamento" description="Destino atual das mensagens" eyebrow="Notas de entrega">
+      <SectionCard title="Roteamento" description="Destino atual das mensagens" eyebrow={t("chat.eyebrow.deliveryNotes")}>
         <div className="space-y-4 text-sm text-muted-foreground">
           <div className="rounded-xl border border-border bg-panel-elevated p-4">
             <p className="mb-2 text-kicker">Persistência</p>

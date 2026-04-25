@@ -94,7 +94,7 @@ const Configuracoes = () => {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-      <SectionCard title="Integrações da Luize" description="Webhook do chat e timezone operacional" eyebrow="Configurações de controle">
+      <SectionCard title="Integrações da Luize" description="Webhook do chat e timezone operacional" eyebrow={t("configuracoes.eyebrow.controlSettings")}>
         <form className="space-y-5" onSubmit={handleSave}>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Webhook URL</label>
@@ -132,7 +132,7 @@ const Configuracoes = () => {
         </form>
       </SectionCard>
 
-      <SectionCard title="Estado atual" description="Leituras rápidas da instância" eyebrow="Snapshot">
+      <SectionCard title="Estado atual" description="Leituras rápidas da instância" eyebrow={t("configuracoes.eyebrow.snapshot")}>
         <div className="space-y-4 text-sm text-muted-foreground">
           <div className="rounded-2xl border border-border bg-panel-elevated p-4">
             <div className="mb-2 flex items-center justify-between">
