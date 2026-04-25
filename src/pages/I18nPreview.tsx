@@ -172,6 +172,26 @@ export default function I18nPreview() {
             </SelectContent>
           </Select>
 
+          <div className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5">
+            <Switch
+              id="combine-search"
+              checked={combineSearch}
+              onCheckedChange={setCombineSearch}
+              aria-label="Combinar busca textual com filtro de área"
+            />
+            <Label
+              htmlFor="combine-search"
+              className="cursor-pointer text-xs text-muted-foreground"
+              title={
+                combineSearch
+                  ? "Busca textual está sendo combinada com o filtro de área."
+                  : "Filtro de área ignora a busca textual atual."
+              }
+            >
+              {combineSearch ? "Combinar busca + área" : "Ignorar busca textual"}
+            </Label>
+          </div>
+
           <Button
             type="button"
             variant="outline"
