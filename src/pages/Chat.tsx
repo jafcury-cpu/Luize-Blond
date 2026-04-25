@@ -211,12 +211,19 @@ const Chat = () => {
       }
 
       setMessages((current) => [...current, assistantMessage as MessageRow]);
+      if (webhookUrl && status !== "online") {
+        setStatus("online");
+        setStatusDetail(null);
+        setLastCheckedAt(new Date());
+      }
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro no webhook",
         description: getFriendlyWebhookError(error),
       });
+      // Re-check status so the indicator reflects reality after a failure
+      if (webhookUrl) void checkWebhook();
     } finally {
       setSending(false);
     }
