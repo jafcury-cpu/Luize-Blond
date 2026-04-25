@@ -44,7 +44,7 @@ const channelConfig: Record<Channel, { label: string; color: string; icon: strin
 };
 
 const Comunicacoes = () => {
-  useDocumentTitle("Comunicações", "Hub de canais e secretária IA — Luize Blond");
+  useDocumentTitle("Comunicações");
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<CommMessage[]>([]);

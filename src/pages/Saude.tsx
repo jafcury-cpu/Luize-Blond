@@ -8,7 +8,7 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { getFallbackHealthData, getHealthData, type HealthData } from "@/lib/zarqa-cloud-data";
 
 const Saude = () => {
-  useDocumentTitle("Saúde", "Biometria e consistência diária — Luize Blond");
+  useDocumentTitle("Saúde");
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);

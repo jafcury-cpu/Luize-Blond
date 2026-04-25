@@ -36,7 +36,7 @@ type UpcomingEvent = {
 };
 
 const Contatos = () => {
-  useDocumentTitle("Contatos", "Família, aniversários e datas importantes — Luize Blond");
+  useDocumentTitle("Contatos");
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
