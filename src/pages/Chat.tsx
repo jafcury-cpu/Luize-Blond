@@ -1,6 +1,7 @@
 import { t } from "@/lib/i18n";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { SendHorizontal } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { RefreshCw, SendHorizontal } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,18 @@ function getFriendlyWebhookError(error: unknown) {
   return error instanceof Error ? error.message : "A resposta não pôde ser concluída.";
 }
 
+type WebhookStatus = "idle" | "checking" | "online" | "offline" | "timeout" | "not_configured" | "invalid";
+
+const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string }> = {
+  idle: { variant: "secondary", label: "Aguardando verificação" },
+  checking: { variant: "secondary", label: "Verificando conexão..." },
+  online: { variant: "success", label: "Webhook online" },
+  offline: { variant: "destructive", label: "Webhook offline" },
+  timeout: { variant: "destructive", label: "Webhook sem resposta" },
+  not_configured: { variant: "warning", label: "Webhook não configurado" },
+  invalid: { variant: "destructive", label: "Webhook inválido" },
+};
+
 const Chat = () => {
   useDocumentTitle("Chat");
   const { user } = useAuth();
@@ -74,7 +87,37 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<WebhookStatus>("idle");
+  const [statusDetail, setStatusDetail] = useState<string | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+
+  const checkWebhook = useCallback(async () => {
+    setStatus("checking");
+    setStatusDetail(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("chat-webhook", {
+        body: { mode: "ping" },
+      });
+      if (error) {
+        setStatus("offline");
+        setStatusDetail(getFriendlyWebhookError(error));
+        setLatencyMs(null);
+        return;
+      }
+      const next = (data?.status as WebhookStatus | undefined) ?? "offline";
+      setStatus(next);
+      setStatusDetail(typeof data?.message === "string" ? data.message : null);
+      setLatencyMs(typeof data?.latencyMs === "number" ? data.latencyMs : null);
+    } catch (error) {
+      setStatus("offline");
+      setStatusDetail(getFriendlyWebhookError(error));
+      setLatencyMs(null);
+    } finally {
+      setLastCheckedAt(new Date());
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -93,15 +136,20 @@ const Chat = () => {
         setMessages(sanitizeMessages(messageRows as Array<{ id: string; role: string; content: string; created_at: string }> | null | undefined));
       }
 
-      if (!settingsError) {
-        setWebhookUrl(settingsRow?.webhook_url ?? null);
-      }
-
+      const url = !settingsError ? settingsRow?.webhook_url ?? null : null;
+      setWebhookUrl(url);
       setLoading(false);
+
+      if (url) {
+        void checkWebhook();
+      } else {
+        setStatus("not_configured");
+        setLastCheckedAt(new Date());
+      }
     };
 
     void load();
-  }, [toast, user]);
+  }, [toast, user, checkWebhook]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -163,12 +211,19 @@ const Chat = () => {
       }
 
       setMessages((current) => [...current, assistantMessage as MessageRow]);
+      if (webhookUrl && status !== "online") {
+        setStatus("online");
+        setStatusDetail(null);
+        setLastCheckedAt(new Date());
+      }
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro no webhook",
         description: getFriendlyWebhookError(error),
       });
+      // Re-check status so the indicator reflects reality after a failure
+      if (webhookUrl) void checkWebhook();
     } finally {
       setSending(false);
     }
@@ -182,7 +237,23 @@ const Chat = () => {
         eyebrow={t("chat.eyebrow.messaging")}
         className="min-h-[72vh]"
         contentClassName="flex h-full flex-col"
-        action={<Badge variant={webhookUrl ? "success" : "warning"}>{webhookUrl ? "Webhook ativo" : "Webhook pendente"}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge variant={STATUS_BADGE[status].variant}>{STATUS_BADGE[status].label}</Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { void checkWebhook(); }}
+              disabled={status === "checking" || !webhookUrl}
+              className="h-8 gap-1.5"
+              aria-label="Re-testar conexão com o webhook"
+            >
+              <RefreshCw className={`size-3.5 ${status === "checking" ? "animate-spin" : ""}`} />
+              Testar
+            </Button>
+          </div>
+        }
       >
         <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel-elevated">
           <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
@@ -250,8 +321,28 @@ const Chat = () => {
             </p>
           </div>
           <div className="rounded-xl border border-border bg-panel-elevated p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-kicker">Status da conexão</p>
+              <Badge variant={STATUS_BADGE[status].variant}>{STATUS_BADGE[status].label}</Badge>
+            </div>
+            {statusDetail ? <p className="mb-2 text-foreground">{statusDetail}</p> : null}
+            {latencyMs !== null && status === "online" ? (
+              <p className="mb-2 font-mono text-xs text-muted-foreground">Latência: {latencyMs} ms</p>
+            ) : null}
+            {lastCheckedAt ? (
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                Verificado às {lastCheckedAt.toLocaleTimeString("pt-BR")}
+              </p>
+            ) : null}
+            {status === "not_configured" ? (
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link to="/configuracoes">Configurar webhook</Link>
+              </Button>
+            ) : null}
+          </div>
+          <div className="rounded-xl border border-border bg-panel-elevated p-4">
             <p className="mb-2 text-kicker">Webhook</p>
-            <p>{webhookUrl || "Nenhuma URL configurada no momento."}</p>
+            <p className="break-all">{webhookUrl || "Nenhuma URL configurada no momento."}</p>
           </div>
           <div className="rounded-xl border border-border bg-panel-elevated p-4">
             <p className="mb-2 text-kicker">Payload</p>
