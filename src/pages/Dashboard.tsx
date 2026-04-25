@@ -190,7 +190,7 @@ const Dashboard = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="Pulse de Operação" description="Indicadores rápidos de leitura" eyebrow="Executive pulse" className="xl:col-span-3">
+        <SectionCard title="Pulse de Operação" description="Indicadores rápidos de leitura" eyebrow="Pulso executivo" className="xl:col-span-3">
           <div className="grid gap-3">
             <div className="rounded-xl border border-border bg-panel-elevated p-4">
               <div className="flex items-center gap-3">
