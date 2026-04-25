@@ -25,7 +25,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData>(getFallbackDashboardData());
   const { full, short } = useSaoPauloTime();
-  useDocumentTitle("Dashboard", "Resumo executivo do dia — Luize Blond Chief of Staff Digital");
+  useDocumentTitle("Dashboard");
 
   useEffect(() => {
     let cancelled = false;

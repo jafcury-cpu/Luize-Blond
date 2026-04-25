@@ -35,7 +35,7 @@ function validateWebhookUrl(value: string) {
 }
 
 const Configuracoes = () => {
-  useDocumentTitle("Configurações", "Webhook, timezone e preferências — Luize Blond");
+  useDocumentTitle("Configurações");
   const { user } = useAuth();
   const { toast } = useToast();
   const [webhookUrl, setWebhookUrl] = useState("");

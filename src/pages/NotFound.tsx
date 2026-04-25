@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 const NotFound = () => {
-  useDocumentTitle("Página não encontrada", "Rota inexistente — Luize Blond");
+  useDocumentTitle("Página não encontrada");
   const location = useLocation();
 
   useEffect(() => {

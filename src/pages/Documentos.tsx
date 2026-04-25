@@ -34,7 +34,7 @@ function sanitizeFileName(name: string) {
 }
 
 const Documentos = () => {
-  useDocumentTitle("Documentos", "Busca, upload e memória operacional — Luize Blond");
+  useDocumentTitle("Documentos");
   const { user } = useAuth();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement | null>(null);

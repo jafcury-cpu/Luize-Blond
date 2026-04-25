@@ -65,7 +65,7 @@ function getFriendlyWebhookError(error: unknown) {
 }
 
 const Chat = () => {
-  useDocumentTitle("Chat", "Delegue, consulte e acompanhe — Luize Blond");
+  useDocumentTitle("Chat");
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<MessageRow[]>([]);

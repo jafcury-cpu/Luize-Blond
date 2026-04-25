@@ -9,7 +9,7 @@ import { lovable } from "@/integrations/lovable";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 const Login = () => {
-  useDocumentTitle("Login", "Acesso privado — Luize Blond Chief of Staff Digital");
+  useDocumentTitle("Login");
   const { user } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
