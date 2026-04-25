@@ -28,9 +28,17 @@ function PageMock({ title }: { title: string }) {
   return <div>{title}</div>;
 }
 
-function App({ initialPath }: { initialPath: string }) {
+let navigateRef: ((to: string) => void) | null = null;
+function NavigatorBridge() {
+  const navigate = useNavigate();
+  navigateRef = (to: string) => navigate(to);
+  return null;
+}
+
+function App() {
   return (
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={["/dashboard"]}>
+      <NavigatorBridge />
       <Routes>
         <Route path="/dashboard" element={<PageMock title="Dashboard" />} />
         <Route path="/chat" element={<PageMock title="Chat" />} />
