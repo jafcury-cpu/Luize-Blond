@@ -10,6 +10,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { dictionary, t } from "@/lib/i18n";
 import { getUsage, getUsageCount } from "@/lib/i18n-usage";
