@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import {
   Bell,
   BookUser,
@@ -82,7 +83,7 @@ export function LuizeSidebar() {
           </div>
           {!collapsed ? (
             <Badge variant="outline" className="w-fit border-sidebar-border text-sidebar-foreground/80">
-              Modo seguro de usuário único
+              {t("common.singleUserMode")}
             </Badge>
           ) : null}
         </div>
@@ -90,7 +91,7 @@ export function LuizeSidebar() {
 
       <SidebarContent className="scrollbar-thin px-2 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel>Operação</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("sidebar.section.operacao")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => {
