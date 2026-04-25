@@ -61,7 +61,16 @@ function groupByArea(entries: [string, string][]): Group[] {
 export default function I18nPreview() {
   useDocumentTitle("Dicionário i18n");
   const [query, setQuery] = useState("");
-  const [area, setArea] = useState<string>("__all__");
+  const [area, setArea] = useState<string>(() => {
+    if (typeof window === "undefined") return "__all__";
+    try {
+      const raw = window.localStorage.getItem("i18n-preview:area");
+      if (raw && typeof raw === "string") return raw;
+    } catch {
+      /* ignore */
+    }
+    return "__all__";
+  });
   const [combineSearch, setCombineSearch] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -109,6 +118,23 @@ export default function I18nPreview() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, count]) => ({ name, count }));
   }, [allEntries]);
+
+  // Se a área salva não existe mais no dicionário, faz fallback para "__all__".
+  useEffect(() => {
+    if (area === "__all__") return;
+    if (!areas.some((a) => a.name === area)) {
+      setArea("__all__");
+    }
+  }, [area, areas]);
+
+  // Persiste o filtro de área para sobreviver a recargas e exports.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("i18n-preview:area", area);
+    } catch {
+      /* ignore */
+    }
+  }, [area]);
 
   const byArea = useMemo(() => {
     if (area === "__all__") return allEntries;
