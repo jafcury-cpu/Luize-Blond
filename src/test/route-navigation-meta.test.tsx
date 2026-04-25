@@ -64,32 +64,23 @@ function assertMetaForTitle(pageTitle: string) {
 
 describe("Navegação entre rotas — meta tags atualizam no browser", () => {
   it("atualiza title e meta tags ao navegar /dashboard → /chat → /financeiro", () => {
-    const { rerender, unmount } = render(<App initialPath="/dashboard" />);
+    render(<App />);
     assertMetaForTitle("Dashboard");
 
-    // Simula navegação remontando o roteador no novo path
-    unmount();
-    rerender(<App initialPath="/chat" />);
+    act(() => {
+      navigateRef?.("/chat");
+    });
     assertMetaForTitle("Chat");
 
-    cleanup();
-    render(<App initialPath="/financeiro" />);
-    assertMetaForTitle("Financeiro");
-  });
-
-  it("ao retornar para /dashboard, restaura title e meta tags consistentes", () => {
-    render(<App initialPath="/financeiro" />);
+    act(() => {
+      navigateRef?.("/financeiro");
+    });
     assertMetaForTitle("Financeiro");
 
-    cleanup();
-    document.head.innerHTML = "";
-    ensureMeta('meta[name="description"]', "name", "description");
-    ensureMeta('meta[property="og:title"]', "property", "og:title");
-    ensureMeta('meta[property="og:description"]', "property", "og:description");
-    ensureMeta('meta[name="twitter:title"]', "name", "twitter:title");
-    ensureMeta('meta[name="twitter:description"]', "name", "twitter:description");
-
-    render(<App initialPath="/dashboard" />);
+    // Volta para /dashboard e confirma que tudo é restaurado
+    act(() => {
+      navigateRef?.("/dashboard");
+    });
     assertMetaForTitle("Dashboard");
   });
 });
