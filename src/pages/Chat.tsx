@@ -237,7 +237,23 @@ const Chat = () => {
         eyebrow={t("chat.eyebrow.messaging")}
         className="min-h-[72vh]"
         contentClassName="flex h-full flex-col"
-        action={<Badge variant={webhookUrl ? "success" : "warning"}>{webhookUrl ? "Webhook ativo" : "Webhook pendente"}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge variant={STATUS_BADGE[status].variant}>{STATUS_BADGE[status].label}</Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { void checkWebhook(); }}
+              disabled={status === "checking" || !webhookUrl}
+              className="h-8 gap-1.5"
+              aria-label="Re-testar conexão com o webhook"
+            >
+              <RefreshCw className={`size-3.5 ${status === "checking" ? "animate-spin" : ""}`} />
+              Testar
+            </Button>
+          </div>
+        }
       >
         <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel-elevated">
           <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
