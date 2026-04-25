@@ -58,14 +58,14 @@ const Login = () => {
         <div className="grid-tech absolute inset-0 opacity-20" />
         <div className="relative z-10 flex items-center justify-between">
           <div>
-            <p className="text-kicker">Executive Terminal</p>
-            <h1 className="mt-3 text-5xl font-semibold tracking-[0.16em] text-foreground">Luize Blond</h1>
+            <p className="text-kicker">Terminal executivo</p>
+            <h1 className="mt-3 text-5xl font-semibold tracking-[0.16em] text-foreground">Luize</h1>
           </div>
           <ShieldCheck className="size-10 animate-pulse-soft text-primary" />
         </div>
 
         <div className="relative z-10 max-w-xl space-y-6">
-          <p className="text-kicker">Personal Chief of Staff</p>
+          <p className="text-kicker">Painel privado</p>
           <p className="text-3xl font-semibold leading-tight text-foreground">
             Um painel privado para coordenar agenda, finanças, saúde e documentos com linguagem de comando executivo.
           </p>
@@ -86,7 +86,7 @@ const Login = () => {
         <Card className="surface-elevated w-full max-w-md border-border/90 bg-panel-elevated">
           <CardHeader className="space-y-3">
             <p className="text-kicker">Acesso Privado</p>
-            <CardTitle className="text-3xl tracking-tight">Entrar na Luize Blond</CardTitle>
+            <CardTitle className="text-3xl tracking-tight">Entrar na Luize</CardTitle>
             <CardDescription>Login pessoal único com autenticação segura por Google.</CardDescription>
           </CardHeader>
           <CardContent>
