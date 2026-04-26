@@ -311,6 +311,14 @@ const Chat = () => {
     realtimeStatusRef.current = realtimeStatus;
   }, [realtimeStatus]);
 
+  // Cross-effect-run dedupe so user switch / StrictMode double-mount won't fire duplicate toasts
+  const lastToastedRef = useRef<{ status: RealtimeStatus | null; reason: string; at: number; userId: string | null }>({
+    status: null,
+    reason: "",
+    at: 0,
+    userId: null,
+  });
+
   // Live preference: silence realtime connection toasts (per-device, stored in localStorage)
   const realtimeToastsMutedRef = useRef<boolean>(getRealtimeToastsMuted());
   useEffect(() => {
