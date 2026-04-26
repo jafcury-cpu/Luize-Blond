@@ -396,7 +396,7 @@ const Chat = () => {
       if (channel) void supabase.removeChannel(channel);
       setRealtimeStatus("disconnected");
     };
-  }, [user]);
+  }, [user, realtimePaused]);
 
   // Drop recent syncs older than 60s so the counter reflects only the latest activity
   useEffect(() => {
