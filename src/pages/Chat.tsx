@@ -1,7 +1,7 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronUp, Download, RefreshCw, SendHorizontal, Trash2, Radio } from "lucide-react";
+import { ChevronUp, Download, Pause, Play, RefreshCw, SendHorizontal, Trash2, Radio } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
@@ -92,13 +92,14 @@ const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "de
   invalid: { variant: "destructive", label: "Webhook inválido" },
 };
 
-type RealtimeStatus = "connecting" | "connected" | "disconnected" | "error";
+type RealtimeStatus = "connecting" | "connected" | "disconnected" | "error" | "paused";
 
 const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string; dot: string }> = {
   connecting: { variant: "secondary", label: "Conectando realtime", dot: "bg-muted-foreground animate-pulse" },
   connected: { variant: "success", label: "Realtime conectado", dot: "bg-emerald-500 animate-pulse" },
   disconnected: { variant: "warning", label: "Realtime desconectado", dot: "bg-amber-500" },
   error: { variant: "destructive", label: "Realtime com erro", dot: "bg-destructive" },
+  paused: { variant: "secondary", label: "Realtime pausado", dot: "bg-muted-foreground" },
 };
 
 function RealtimeIndicator({
@@ -173,6 +174,8 @@ const Chat = () => {
   const [realtimeLastChangeAt, setRealtimeLastChangeAt] = useState<Date | null>(null);
   const [recentSyncs, setRecentSyncs] = useState<Array<{ kind: "insert" | "delete"; at: number }>>([]);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [realtimePaused, setRealtimePaused] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const previousScrollHeightRef = useRef<number>(0);
@@ -252,6 +255,13 @@ const Chat = () => {
   // Realtime: keep history in sync across tabs/devices for the current user, with auto-reconnect + toasts
   useEffect(() => {
     if (!user) return;
+    if (realtimePaused) {
+      // Pause: skip subscribing entirely; cleanup runs on next pause toggle / unmount
+      setRealtimeStatus("paused");
+      setRealtimeReason("Sincronização pausada manualmente");
+      setRealtimeLastChangeAt(new Date());
+      return;
+    }
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: number | null = null;
@@ -386,7 +396,7 @@ const Chat = () => {
       if (channel) void supabase.removeChannel(channel);
       setRealtimeStatus("disconnected");
     };
-  }, [user]);
+  }, [user, realtimePaused]);
 
   // Drop recent syncs older than 60s so the counter reflects only the latest activity
   useEffect(() => {
@@ -441,6 +451,54 @@ const Chat = () => {
     setHasMore(more);
     setLoadingMore(false);
   }, [user, hasMore, loadingMore, messages, toast]);
+
+  const togglePause = useCallback(async () => {
+    // If currently paused, we are about to resume: backfill any messages received during the pause
+    if (realtimePaused && user) {
+      setResyncing(true);
+      try {
+        const newest = messages.length ? messages[messages.length - 1] : null;
+        const query = supabase
+          .from("messages")
+          .select("id, role, content, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true })
+          .limit(PAGE_SIZE);
+        const { data, error } = newest
+          ? await query.gt("created_at", newest.created_at)
+          : await query;
+        if (error) {
+          sonnerToast.error("Falha ao ressincronizar", { description: error.message });
+        } else {
+          const fresh = sanitizeMessages(data ?? []);
+          if (fresh.length) {
+            setMessages((current) => {
+              const seen = new Set(current.map((m) => m.id));
+              const merged = [...current, ...fresh.filter((m) => !seen.has(m.id))];
+              return merged;
+            });
+            setLastSyncAt(new Date());
+            sonnerToast.success("Sincronização retomada", {
+              description: `${fresh.length} mensagem${fresh.length === 1 ? "" : "s"} recuperada${fresh.length === 1 ? "" : "s"} · ${new Date().toLocaleTimeString("pt-BR")}`,
+            });
+          } else {
+            sonnerToast.success("Sincronização retomada", {
+              description: `Nenhuma nova mensagem · ${new Date().toLocaleTimeString("pt-BR")}`,
+            });
+          }
+        }
+      } finally {
+        setResyncing(false);
+      }
+      setRealtimePaused(false);
+    } else {
+      // Pausing
+      setRealtimePaused(true);
+      sonnerToast.message("Sincronização pausada", {
+        description: `Histórico antigo continua disponível · ${new Date().toLocaleTimeString("pt-BR")}`,
+      });
+    }
+  }, [realtimePaused, user, messages]);
 
   const handleClearHistory = useCallback(async () => {
     if (!user || clearing) return;
@@ -590,6 +648,19 @@ const Chat = () => {
             >
               <RefreshCw className={`size-3.5 ${status === "checking" ? "animate-spin" : ""}`} />
               Testar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { void togglePause(); }}
+              disabled={resyncing}
+              className="h-8 gap-1.5"
+              aria-label={realtimePaused ? "Retomar sincronização realtime" : "Pausar sincronização realtime"}
+              aria-pressed={realtimePaused}
+            >
+              {realtimePaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+              {resyncing ? "Ressincronizando..." : realtimePaused ? "Retomar" : "Pausar"}
             </Button>
             <Button
               type="button"
