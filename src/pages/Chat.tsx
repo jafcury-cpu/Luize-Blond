@@ -419,7 +419,18 @@ const Chat = () => {
       if (channel) void supabase.removeChannel(channel);
       setRealtimeStatus("disconnected");
     };
-  }, [user, realtimePaused]);
+  }, [user, realtimePaused, reconnectNonce]);
+
+  const handleManualReconnect = useCallback(() => {
+    if (realtimePaused) return;
+    setReconnecting(true);
+    setRealtimeStatus("connecting");
+    setRealtimeReason("Reconexão manual solicitada");
+    setRealtimeLastChangeAt(new Date());
+    setReconnectNonce((n) => n + 1);
+    // The realtime effect will tear down and re-subscribe; clear the spinner shortly after
+    window.setTimeout(() => setReconnecting(false), 1500);
+  }, [realtimePaused]);
 
   // Drop recent syncs older than 60s so the counter reflects only the latest activity
   useEffect(() => {
