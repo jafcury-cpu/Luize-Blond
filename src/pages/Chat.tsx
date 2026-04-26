@@ -23,7 +23,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
-import { CHAT_PREFS_CHANGED_EVENT, getRealtimeToastsMuted, REALTIME_TOAST_PREF_KEY } from "@/lib/chat-preferences";
+import {
+  CHAT_PREFS_CHANGED_EVENT,
+  clearRealtimeEventLog,
+  getRealtimeEventLog,
+  getRealtimeToastsMuted,
+  REALTIME_EVENT_LOG_CHANGED_EVENT,
+  REALTIME_EVENT_LOG_KEY,
+  REALTIME_EVENT_LOG_MAX,
+  REALTIME_TOAST_PREF_KEY,
+  setRealtimeEventLog,
+} from "@/lib/chat-preferences";
 import { formatDateTime } from "@/lib/luize-mocks";
 
 const PAGE_SIZE = 200;
@@ -310,15 +320,42 @@ const Chat = () => {
   const [reconnecting, setReconnecting] = useState(false);
   const [realtimePaused, setRealtimePaused] = useState(false);
   const [resyncing, setResyncing] = useState(false);
-  const [eventLog, setEventLog] = useState<RealtimeEvent[]>([]);
-  const handleClearEventLog = useCallback(() => setEventLog([]), []);
+  const [eventLog, setEventLog] = useState<RealtimeEvent[]>(() => getRealtimeEventLog());
+  const handleClearEventLog = useCallback(() => {
+    setEventLog([]);
+    clearRealtimeEventLog();
+  }, []);
   const appendEvent = useCallback((status: RealtimeStatus, reason: string) => {
     setEventLog((current) => {
       const last = current[current.length - 1];
       if (last && last.status === status && last.reason === reason) return current;
-      const next = [...current, { at: Date.now(), status, reason }];
-      return next.length > 10 ? next.slice(next.length - 10) : next;
+      const merged = [...current, { at: Date.now(), status, reason }];
+      const next = merged.length > REALTIME_EVENT_LOG_MAX ? merged.slice(merged.length - REALTIME_EVENT_LOG_MAX) : merged;
+      setRealtimeEventLog(next);
+      return next;
     });
+  }, []);
+
+  // Cross-tab + same-tab sync of the persisted realtime event log
+  useEffect(() => {
+    const sync = () => {
+      const next = getRealtimeEventLog();
+      setEventLog((current) => {
+        if (current.length === next.length && current.every((e, i) => e.at === next[i].at && e.status === next[i].status)) {
+          return current;
+        }
+        return next;
+      });
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === REALTIME_EVENT_LOG_KEY) sync();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(REALTIME_EVENT_LOG_CHANGED_EVENT, sync);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(REALTIME_EVENT_LOG_CHANGED_EVENT, sync);
+    };
   }, []);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
