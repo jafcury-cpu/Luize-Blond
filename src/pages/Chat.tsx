@@ -195,6 +195,8 @@ const Chat = () => {
   const [realtimeLastChangeAt, setRealtimeLastChangeAt] = useState<Date | null>(null);
   const [recentSyncs, setRecentSyncs] = useState<Array<{ kind: "insert" | "delete"; at: number }>>([]);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const [reconnecting, setReconnecting] = useState(false);
   const [realtimePaused, setRealtimePaused] = useState(false);
   const [resyncing, setResyncing] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
