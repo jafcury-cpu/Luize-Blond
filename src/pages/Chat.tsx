@@ -221,6 +221,7 @@ const Chat = () => {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [nextRetryAt, setNextRetryAt] = useState<number | null>(null);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const [realtimeLog, setRealtimeLog] = useState<RealtimeLogEntry[]>(() => getRealtimeLog());
   const [reconnectNonce, setReconnectNonce] = useState(0);
   const [reconnecting, setReconnecting] = useState(false);
   const [realtimePaused, setRealtimePaused] = useState(false);
