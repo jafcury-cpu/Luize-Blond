@@ -367,6 +367,10 @@ const Chat = () => {
       setRealtimeStatus(next);
       setRealtimeLastChangeAt(new Date());
       setRealtimeReason(reason);
+      // Persist transition to the recent log (skip the initial "connecting" noise)
+      if (next !== "connecting") {
+        appendRealtimeLog(next, reason);
+      }
       notifyTransition(next, reason);
     };
 
