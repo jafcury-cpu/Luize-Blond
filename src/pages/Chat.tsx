@@ -23,6 +23,17 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
 import { getRealtimeToastsMuted, REALTIME_TOAST_PREF_KEY } from "@/lib/chat-preferences";
+import {
+  appendRealtimeLog,
+  clearRealtimeLog,
+  getRealtimeLog,
+  REALTIME_LOG_EVENT,
+  REALTIME_LOG_KEY,
+  REALTIME_LOG_MAX,
+  type RealtimeLogEntry,
+} from "@/lib/realtime-log";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { History } from "lucide-react";
 import { formatDateTime } from "@/lib/luize-mocks";
 
 const PAGE_SIZE = 200;
