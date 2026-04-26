@@ -109,6 +109,9 @@ const Chat = () => {
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
+  const [recentSyncs, setRecentSyncs] = useState<Array<{ kind: "insert" | "delete"; at: number }>>([]);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const previousScrollHeightRef = useRef<number>(0);
