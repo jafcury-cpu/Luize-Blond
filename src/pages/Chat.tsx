@@ -423,6 +423,8 @@ const Chat = () => {
     const handleOnline = () => {
       if (realtimeStatusRef.current !== "connected") {
         attempt = 0;
+        setReconnectAttempts(0);
+        setNextRetryAt(null);
         if (reconnectTimer) {
           window.clearTimeout(reconnectTimer);
           reconnectTimer = null;
