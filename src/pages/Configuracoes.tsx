@@ -53,6 +53,28 @@ const Configuracoes = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [muteRealtimeToasts, setMuteRealtimeToasts] = useState<boolean>(() => getRealtimeToastsMuted());
+
+  // Cross-tab + same-tab sync: keep the switch in sync if the preference changes elsewhere
+  useEffect(() => {
+    const sync = () => {
+      const next = getRealtimeToastsMuted();
+      setMuteRealtimeToasts((current) => (current === next ? current : next));
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === REALTIME_TOAST_PREF_KEY) sync();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
   const webhookError = useMemo(() => validateWebhookUrl(webhookUrl), [webhookUrl]);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
