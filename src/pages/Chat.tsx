@@ -208,6 +208,23 @@ const Chat = () => {
     realtimeStatusRef.current = realtimeStatus;
   }, [realtimeStatus]);
 
+  // Live preference: silence realtime connection toasts (per-device, stored in localStorage)
+  const realtimeToastsMutedRef = useRef<boolean>(getRealtimeToastsMuted());
+  useEffect(() => {
+    const sync = () => {
+      realtimeToastsMutedRef.current = getRealtimeToastsMuted();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === REALTIME_TOAST_PREF_KEY) sync();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("luize:chat-prefs-changed", sync);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("luize:chat-prefs-changed", sync);
+    };
+  }, []);
+
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
     setStatusDetail(null);
