@@ -563,23 +563,29 @@ const Chat = () => {
       // Honor user preference to silence realtime connection toasts
       if (realtimeToastsMutedRef.current) return;
 
+      const historyAction = { label: "Ver histórico", onClick: () => openRealtimeHistory() };
+
       if (next === "connected") {
         sonnerToast.success("Realtime reconectado", {
           description: `${reason} · atualizado às ${formatNow()}`,
+          action: historyAction,
         });
       } else if (next === "disconnected") {
         sonnerToast.warning("Realtime desconectado", {
           description: `${reason} · última atualização às ${formatNow()}`,
+          action: historyAction,
         });
       } else if (next === "error") {
         sonnerToast.error("Falha no realtime", {
           description: `${reason} · tentando reconectar... (${formatNow()})`,
+          action: historyAction,
         });
       } else if (next === "connecting") {
         // Discreet info toast — only fires on real transitions (e.g. retry, manual reconnect, network back)
         sonnerToast.info("Conectando ao realtime", {
           description: `${reason} · ${formatNow()}`,
           duration: 2500,
+          action: historyAction,
         });
       }
     };
