@@ -251,6 +251,20 @@ const Chat = () => {
     };
   }, []);
 
+  // Subscribe to realtime-log changes (cross-tab via `storage`, same-tab via custom event)
+  useEffect(() => {
+    const refresh = () => setRealtimeLog(getRealtimeLog());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === REALTIME_LOG_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(REALTIME_LOG_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(REALTIME_LOG_EVENT, refresh);
+    };
+  }, []);
+
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
     setStatusDetail(null);
