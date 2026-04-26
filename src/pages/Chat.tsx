@@ -140,6 +140,8 @@ function RealtimeIndicator({
   paused: boolean;
   reconnectAttempts: number;
   retryCountdown: number | null;
+  log: RealtimeLogEntry[];
+  onClearLog: () => void;
 }) {
   const meta = REALTIME_BADGE[status];
   const total = insertCount + deleteCount;
