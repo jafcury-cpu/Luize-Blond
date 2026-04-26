@@ -188,6 +188,8 @@ const Chat = () => {
   useEffect(() => {
     if (!user) return;
 
+    setRealtimeStatus("connecting");
+
     const channel = supabase
       .channel(`messages:${user.id}`)
       .on(
@@ -202,6 +204,8 @@ const Chat = () => {
             const next: MessageRow = { id: row.id, role, content: row.content, created_at: row.created_at };
             return [...current, next];
           });
+          setRecentSyncs((current) => [...current, { kind: "insert", at: Date.now() }]);
+          setLastSyncAt(new Date());
         },
       )
       .on(
@@ -211,15 +215,36 @@ const Chat = () => {
           const oldRow = payload.old as { id?: string };
           if (oldRow?.id) {
             setMessages((current) => current.filter((m) => m.id !== oldRow.id));
+            setRecentSyncs((current) => [...current, { kind: "delete", at: Date.now() }]);
+            setLastSyncAt(new Date());
           }
         },
       )
-      .subscribe();
+      .subscribe((subStatus) => {
+        if (subStatus === "SUBSCRIBED") setRealtimeStatus("connected");
+        else if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") setRealtimeStatus("error");
+        else if (subStatus === "CLOSED") setRealtimeStatus("disconnected");
+        else setRealtimeStatus("connecting");
+      });
 
     return () => {
       void supabase.removeChannel(channel);
+      setRealtimeStatus("disconnected");
     };
   }, [user]);
+
+  // Drop recent syncs older than 60s so the counter reflects only the latest activity
+  useEffect(() => {
+    if (recentSyncs.length === 0) return;
+    const timer = window.setInterval(() => {
+      const cutoff = Date.now() - 60_000;
+      setRecentSyncs((current) => {
+        const filtered = current.filter((entry) => entry.at >= cutoff);
+        return filtered.length === current.length ? current : filtered;
+      });
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [recentSyncs.length]);
 
   // Auto-scroll to bottom on new messages (skip when user just loaded older ones)
   useEffect(() => {
