@@ -47,6 +47,7 @@ const Configuracoes = () => {
   const [telegramChatId, setTelegramChatId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [muteRealtimeToasts, setMuteRealtimeToasts] = useState<boolean>(() => getRealtimeToastsMuted());
   const webhookError = useMemo(() => validateWebhookUrl(webhookUrl), [webhookUrl]);
 
   const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
