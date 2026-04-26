@@ -1,16 +1,18 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BellRing, Copy, Link2, Save, Send } from "lucide-react";
+import { BellRing, Copy, Link2, Save, Send, BellOff } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getRealtimeToastsMuted, setRealtimeToastsMuted } from "@/lib/chat-preferences";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
