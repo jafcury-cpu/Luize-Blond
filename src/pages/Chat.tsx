@@ -158,12 +158,18 @@ const Chat = () => {
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
-  const [realtimeStatus, setRealtimeStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("connecting");
+  const [realtimeReason, setRealtimeReason] = useState<string | null>(null);
+  const [realtimeLastChangeAt, setRealtimeLastChangeAt] = useState<Date | null>(null);
   const [recentSyncs, setRecentSyncs] = useState<Array<{ kind: "insert" | "delete"; at: number }>>([]);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const previousScrollHeightRef = useRef<number>(0);
+  const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
+  useEffect(() => {
+    realtimeStatusRef.current = realtimeStatus;
+  }, [realtimeStatus]);
 
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
