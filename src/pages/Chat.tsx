@@ -190,6 +190,79 @@ function RealtimeIndicator({
               últ. {lastUpdate.toLocaleTimeString("pt-BR")}
             </span>
           ) : null}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px]"
+                aria-label={`Ver últimos ${REALTIME_LOG_MAX} eventos do realtime`}
+                title={`Últimos ${REALTIME_LOG_MAX} eventos de conexão`}
+              >
+                <History className="size-3" />
+                histórico
+                {log.length > 0 ? (
+                  <span className="font-mono text-[10px] text-muted-foreground">({log.length})</span>
+                ) : null}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <p className="text-xs font-medium text-foreground">
+                  Últimos eventos do realtime
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClearLog}
+                  disabled={log.length === 0}
+                  className="h-6 px-2 text-[11px] text-muted-foreground"
+                >
+                  Limpar
+                </Button>
+              </div>
+              {log.length === 0 ? (
+                <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  Nenhum evento registrado ainda.
+                </p>
+              ) : (
+                <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+                  {log.map((entry) => {
+                    const meta = REALTIME_BADGE[entry.kind === "manual" ? "connecting" : entry.kind];
+                    return (
+                      <li key={`${entry.at}-${entry.kind}`} className="flex items-start gap-2 px-3 py-2">
+                        <span
+                          className={`mt-1.5 inline-block size-2 shrink-0 rounded-full ${meta.dot}`}
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-foreground">
+                              {entry.kind === "manual" ? "manual" : meta.label}
+                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {new Date(entry.at).toLocaleString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                            {entry.reason}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
       {reason && status !== "connected" ? (
