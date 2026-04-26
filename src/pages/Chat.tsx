@@ -535,7 +535,9 @@ const Chat = () => {
         });
     };
 
-    connect();
+    const initialReason = nextConnectReasonRef.current;
+    nextConnectReasonRef.current = "Conexão inicial";
+    connect(initialReason);
 
     const handleOnline = () => {
       if (realtimeStatusRef.current !== "connected") {
@@ -570,11 +572,10 @@ const Chat = () => {
   const handleManualReconnect = useCallback(() => {
     if (realtimePaused) return;
     setReconnecting(true);
-    setRealtimeStatus("connecting");
-    setRealtimeReason("Reconexão manual solicitada");
-    setRealtimeLastChangeAt(new Date());
+    nextConnectReasonRef.current = "Reconexão manual solicitada";
     setReconnectNonce((n) => n + 1);
-    // The realtime effect will tear down and re-subscribe; clear the spinner shortly after
+    // The realtime effect will tear down and re-subscribe (firing the "connecting" transition itself);
+    // clear the spinner shortly after
     window.setTimeout(() => setReconnecting(false), 1500);
   }, [realtimePaused]);
 
