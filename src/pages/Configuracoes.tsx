@@ -14,9 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   CHAT_PREFS_CHANGED_EVENT,
-  getRealtimeToastsMuted,
-  REALTIME_TOAST_PREF_KEY,
-  setRealtimeToastsMuted,
+  getRealtimeToastSeverity,
+  REALTIME_TOAST_SEVERITY_KEY,
+  setRealtimeToastSeverity,
+  type RealtimeToastSeverity,
 } from "@/lib/chat-preferences";
 
 function validateWebhookUrl(value: string) {
@@ -52,16 +53,16 @@ const Configuracoes = () => {
   const [telegramChatId, setTelegramChatId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [muteRealtimeToasts, setMuteRealtimeToasts] = useState<boolean>(() => getRealtimeToastsMuted());
+  const [toastSeverity, setToastSeverity] = useState<RealtimeToastSeverity>(() => getRealtimeToastSeverity());
 
-  // Cross-tab + same-tab sync: keep the switch in sync if the preference changes elsewhere
+  // Cross-tab + same-tab sync: keep the select in sync if the preference changes elsewhere
   useEffect(() => {
     const sync = () => {
-      const next = getRealtimeToastsMuted();
-      setMuteRealtimeToasts((current) => (current === next ? current : next));
+      const next = getRealtimeToastSeverity();
+      setToastSeverity((current) => (current === next ? current : next));
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === REALTIME_TOAST_PREF_KEY) sync();
+      if (event.key === REALTIME_TOAST_SEVERITY_KEY) sync();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") sync();
