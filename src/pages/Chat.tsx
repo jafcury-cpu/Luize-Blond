@@ -447,6 +447,7 @@ const Chat = () => {
       setRealtimeStatus(next);
       setRealtimeLastChangeAt(new Date());
       setRealtimeReason(reason);
+      appendEvent(next, reason);
       notifyTransition(next, reason);
     };
 
