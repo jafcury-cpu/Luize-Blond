@@ -326,6 +326,7 @@ const Chat = () => {
       setRealtimeStatus("paused");
       setRealtimeReason("Sincronização pausada manualmente");
       setRealtimeLastChangeAt(new Date());
+      appendRealtimeLog("paused", "Sincronização pausada manualmente");
       return;
     }
 
