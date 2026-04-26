@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
-import { getRealtimeToastsMuted, REALTIME_TOAST_PREF_KEY } from "@/lib/chat-preferences";
+import { CHAT_PREFS_CHANGED_EVENT, getRealtimeToastsMuted, REALTIME_TOAST_PREF_KEY } from "@/lib/chat-preferences";
 import { formatDateTime } from "@/lib/luize-mocks";
 
 const PAGE_SIZE = 200;
@@ -323,10 +323,10 @@ const Chat = () => {
       if (event.key === REALTIME_TOAST_PREF_KEY) sync();
     };
     window.addEventListener("storage", onStorage);
-    window.addEventListener("luize:chat-prefs-changed", sync);
+    window.addEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("luize:chat-prefs-changed", sync);
+      window.removeEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
     };
   }, []);
 
