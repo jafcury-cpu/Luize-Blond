@@ -1,8 +1,11 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronUp, Download, History, Pause, Play, RefreshCw, SendHorizontal, Trash2, Radio } from "lucide-react";
+import { CalendarIcon, ChevronUp, Download, FilterX, History, Pause, Play, RefreshCw, SendHorizontal, Trash2, Radio } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
