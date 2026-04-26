@@ -232,51 +232,141 @@ const Chat = () => {
     void load();
   }, [toast, user, checkWebhook]);
 
-  // Realtime: keep history in sync across tabs/devices for the current user
+  // Realtime: keep history in sync across tabs/devices for the current user, with auto-reconnect + toasts
   useEffect(() => {
     if (!user) return;
 
-    setRealtimeStatus("connecting");
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let reconnectTimer: number | null = null;
+    let attempt = 0;
+    let cancelled = false;
+    let lastNotifiedStatus: RealtimeStatus | null = null;
 
-    const channel = supabase
-      .channel(`messages:${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const row = payload.new as { id: string; role: string; content: string; created_at: string };
-          if (!isValidMessageRole(row.role)) return;
-          const role: MessageRow["role"] = row.role;
-          setMessages((current) => {
-            if (current.some((m) => m.id === row.id)) return current;
-            const next: MessageRow = { id: row.id, role, content: row.content, created_at: row.created_at };
-            return [...current, next];
-          });
-          setRecentSyncs((current) => [...current, { kind: "insert", at: Date.now() }]);
-          setLastSyncAt(new Date());
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const oldRow = payload.old as { id?: string };
-          if (oldRow?.id) {
-            setMessages((current) => current.filter((m) => m.id !== oldRow.id));
-            setRecentSyncs((current) => [...current, { kind: "delete", at: Date.now() }]);
+    const formatNow = () => new Date().toLocaleTimeString("pt-BR");
+
+    const notifyTransition = (next: RealtimeStatus, reason: string) => {
+      if (lastNotifiedStatus === next) return;
+      const previous = lastNotifiedStatus;
+      lastNotifiedStatus = next;
+
+      // Skip the very first "connected" toast on initial mount to avoid noise
+      if (next === "connected" && previous === null) return;
+
+      if (next === "connected") {
+        sonnerToast.success("Realtime reconectado", {
+          description: `${reason} · atualizado às ${formatNow()}`,
+        });
+      } else if (next === "disconnected") {
+        sonnerToast.warning("Realtime desconectado", {
+          description: `${reason} · última atualização às ${formatNow()}`,
+        });
+      } else if (next === "error") {
+        sonnerToast.error("Falha no realtime", {
+          description: `${reason} · tentando reconectar... (${formatNow()})`,
+        });
+      }
+    };
+
+    const updateStatus = (next: RealtimeStatus, reason: string) => {
+      setRealtimeStatus(next);
+      setRealtimeLastChangeAt(new Date());
+      setRealtimeReason(reason);
+      notifyTransition(next, reason);
+    };
+
+    const scheduleReconnect = (reason: string) => {
+      if (cancelled) return;
+      attempt += 1;
+      const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt - 1, 4));
+      setRealtimeReason(`${reason} — nova tentativa em ${Math.round(delay / 1000)}s`);
+      reconnectTimer = window.setTimeout(() => {
+        if (!cancelled) connect();
+      }, delay);
+    };
+
+    const connect = () => {
+      if (cancelled) return;
+      setRealtimeStatus((prev) => (prev === "connected" ? prev : "connecting"));
+
+      channel = supabase
+        .channel(`messages:${user.id}:${attempt}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const row = payload.new as { id: string; role: string; content: string; created_at: string };
+            if (!isValidMessageRole(row.role)) return;
+            const role: MessageRow["role"] = row.role;
+            setMessages((current) => {
+              if (current.some((m) => m.id === row.id)) return current;
+              const next: MessageRow = { id: row.id, role, content: row.content, created_at: row.created_at };
+              return [...current, next];
+            });
+            setRecentSyncs((current) => [...current, { kind: "insert", at: Date.now() }]);
             setLastSyncAt(new Date());
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "messages", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const oldRow = payload.old as { id?: string };
+            if (oldRow?.id) {
+              setMessages((current) => current.filter((m) => m.id !== oldRow.id));
+              setRecentSyncs((current) => [...current, { kind: "delete", at: Date.now() }]);
+              setLastSyncAt(new Date());
+            }
+          },
+        )
+        .subscribe((subStatus) => {
+          if (subStatus === "SUBSCRIBED") {
+            attempt = 0;
+            updateStatus("connected", "Canal de mensagens ativo");
+          } else if (subStatus === "CHANNEL_ERROR") {
+            updateStatus("error", "Erro de canal no Supabase Realtime");
+            void supabase.removeChannel(channel!).catch(() => undefined);
+            channel = null;
+            scheduleReconnect("Erro de canal");
+          } else if (subStatus === "TIMED_OUT") {
+            updateStatus("error", "Tempo limite ao conectar ao Realtime");
+            void supabase.removeChannel(channel!).catch(() => undefined);
+            channel = null;
+            scheduleReconnect("Timeout de conexão");
+          } else if (subStatus === "CLOSED") {
+            updateStatus("disconnected", "Conexão encerrada pelo servidor");
+            scheduleReconnect("Conexão encerrada");
           }
-        },
-      )
-      .subscribe((subStatus) => {
-        if (subStatus === "SUBSCRIBED") setRealtimeStatus("connected");
-        else if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") setRealtimeStatus("error");
-        else if (subStatus === "CLOSED") setRealtimeStatus("disconnected");
-        else setRealtimeStatus("connecting");
-      });
+        });
+    };
+
+    connect();
+
+    const handleOnline = () => {
+      if (realtimeStatusRef.current !== "connected") {
+        attempt = 0;
+        if (reconnectTimer) {
+          window.clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+        if (channel) {
+          void supabase.removeChannel(channel).catch(() => undefined);
+          channel = null;
+        }
+        connect();
+      }
+    };
+    const handleOffline = () => {
+      updateStatus("disconnected", "Rede do dispositivo offline");
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (channel) void supabase.removeChannel(channel);
       setRealtimeStatus("disconnected");
     };
   }, [user]);
