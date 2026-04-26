@@ -928,6 +928,8 @@ const Chat = () => {
             paused={realtimePaused}
             reconnectAttempts={reconnectAttempts}
             retryCountdown={retryCountdown}
+            log={realtimeLog}
+            onClearLog={() => { clearRealtimeLog(); setRealtimeLog([]); }}
           />
           <div ref={scrollRef} className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
             {hasMore && !loading ? (
