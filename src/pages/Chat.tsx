@@ -452,6 +452,54 @@ const Chat = () => {
     setLoadingMore(false);
   }, [user, hasMore, loadingMore, messages, toast]);
 
+  const togglePause = useCallback(async () => {
+    // If currently paused, we are about to resume: backfill any messages received during the pause
+    if (realtimePaused && user) {
+      setResyncing(true);
+      try {
+        const newest = messages.length ? messages[messages.length - 1] : null;
+        const query = supabase
+          .from("messages")
+          .select("id, role, content, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true })
+          .limit(PAGE_SIZE);
+        const { data, error } = newest
+          ? await query.gt("created_at", newest.created_at)
+          : await query;
+        if (error) {
+          sonnerToast.error("Falha ao ressincronizar", { description: error.message });
+        } else {
+          const fresh = sanitizeMessages(data ?? []);
+          if (fresh.length) {
+            setMessages((current) => {
+              const seen = new Set(current.map((m) => m.id));
+              const merged = [...current, ...fresh.filter((m) => !seen.has(m.id))];
+              return merged;
+            });
+            setLastSyncAt(new Date());
+            sonnerToast.success("Sincronização retomada", {
+              description: `${fresh.length} mensagem${fresh.length === 1 ? "" : "s"} recuperada${fresh.length === 1 ? "" : "s"} · ${new Date().toLocaleTimeString("pt-BR")}`,
+            });
+          } else {
+            sonnerToast.success("Sincronização retomada", {
+              description: `Nenhuma nova mensagem · ${new Date().toLocaleTimeString("pt-BR")}`,
+            });
+          }
+        }
+      } finally {
+        setResyncing(false);
+      }
+      setRealtimePaused(false);
+    } else {
+      // Pausing
+      setRealtimePaused(true);
+      sonnerToast.message("Sincronização pausada", {
+        description: `Histórico antigo continua disponível · ${new Date().toLocaleTimeString("pt-BR")}`,
+      });
+    }
+  }, [realtimePaused, user, messages]);
+
   const handleClearHistory = useCallback(async () => {
     if (!user || clearing) return;
     setClearing(true);
