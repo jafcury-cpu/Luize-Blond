@@ -254,6 +254,13 @@ const Chat = () => {
   // Realtime: keep history in sync across tabs/devices for the current user, with auto-reconnect + toasts
   useEffect(() => {
     if (!user) return;
+    if (realtimePaused) {
+      // Pause: skip subscribing entirely; cleanup runs on next pause toggle / unmount
+      setRealtimeStatus("paused");
+      setRealtimeReason("Sincronização pausada manualmente");
+      setRealtimeLastChangeAt(new Date());
+      return;
+    }
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: number | null = null;
