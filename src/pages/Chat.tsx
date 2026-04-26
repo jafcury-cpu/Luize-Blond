@@ -113,6 +113,8 @@ function RealtimeIndicator({
   onReconnect,
   reconnecting,
   paused,
+  reconnectAttempts,
+  retryCountdown,
 }: {
   status: RealtimeStatus;
   insertCount: number;
@@ -123,11 +125,14 @@ function RealtimeIndicator({
   onReconnect: () => void;
   reconnecting: boolean;
   paused: boolean;
+  reconnectAttempts: number;
+  retryCountdown: number | null;
 }) {
   const meta = REALTIME_BADGE[status];
   const total = insertCount + deleteCount;
   const lastUpdate = lastSyncAt ?? lastChangeAt;
   const canReconnect = !paused && (status === "disconnected" || status === "error" || status === "connecting");
+  const showRetryInfo = !paused && (status === "disconnected" || status === "error" || status === "connecting") && reconnectAttempts > 0;
   return (
     <div className="flex flex-col gap-1 border-b border-border bg-panel/60 px-4 py-2 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -151,6 +156,12 @@ function RealtimeIndicator({
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {showRetryInfo ? (
+            <Badge variant="warning" className="font-mono" title="Tentativas automáticas de reconexão desde a última conexão saudável">
+              tentativa {reconnectAttempts}
+              {retryCountdown !== null ? ` · próx. ${retryCountdown}s` : ""}
+            </Badge>
+          ) : null}
           <Badge variant={total > 0 ? "secondary" : "outline"} className="font-mono">
             {total} sync{total === 1 ? "" : "s"} / 60s
           </Badge>
