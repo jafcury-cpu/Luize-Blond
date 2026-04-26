@@ -91,6 +91,54 @@ const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "de
   invalid: { variant: "destructive", label: "Webhook inválido" },
 };
 
+type RealtimeStatus = "connecting" | "connected" | "disconnected" | "error";
+
+const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string; dot: string }> = {
+  connecting: { variant: "secondary", label: "Conectando realtime", dot: "bg-muted-foreground animate-pulse" },
+  connected: { variant: "success", label: "Realtime conectado", dot: "bg-emerald-500 animate-pulse" },
+  disconnected: { variant: "warning", label: "Realtime desconectado", dot: "bg-amber-500" },
+  error: { variant: "destructive", label: "Realtime com erro", dot: "bg-destructive" },
+};
+
+function RealtimeIndicator({
+  status,
+  insertCount,
+  deleteCount,
+  lastSyncAt,
+}: {
+  status: RealtimeStatus;
+  insertCount: number;
+  deleteCount: number;
+  lastSyncAt: Date | null;
+}) {
+  const meta = REALTIME_BADGE[status];
+  const total = insertCount + deleteCount;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-panel/60 px-4 py-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className={`inline-block size-2 rounded-full ${meta.dot}`} aria-hidden="true" />
+        <Radio className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <span className="font-mono uppercase tracking-[0.18em] text-muted-foreground">{meta.label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge variant={total > 0 ? "secondary" : "outline"} className="font-mono">
+          {total} sync{total === 1 ? "" : "s"} / 60s
+        </Badge>
+        {total > 0 ? (
+          <span className="font-mono text-muted-foreground">
+            +{insertCount} · −{deleteCount}
+          </span>
+        ) : null}
+        {lastSyncAt ? (
+          <span className="font-mono text-muted-foreground">
+            últ. {lastSyncAt.toLocaleTimeString("pt-BR")}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 const Chat = () => {
   useDocumentTitle("Chat");
   const { user } = useAuth();
