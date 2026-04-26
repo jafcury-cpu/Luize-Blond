@@ -205,21 +205,34 @@ function RealtimeIndicator({
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80 p-0">
-              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   Últimos eventos · realtime
                 </p>
                 {eventLog.length > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClearLog}
-                    className="h-6 px-2 text-[10px]"
-                    aria-label="Limpar histórico de eventos"
-                  >
-                    Limpar
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => exportEventLogToCsv(eventLog)}
+                      className="h-6 gap-1 px-2 text-[10px]"
+                      aria-label="Exportar histórico de eventos em CSV"
+                    >
+                      <Download className="size-3" />
+                      CSV
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={onClearLog}
+                      className="h-6 px-2 text-[10px]"
+                      aria-label="Limpar histórico de eventos"
+                    >
+                      Limpar
+                    </Button>
+                  </div>
                 ) : null}
               </div>
               {eventLog.length === 0 ? (
