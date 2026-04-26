@@ -113,6 +113,8 @@ function RealtimeIndicator({
   onReconnect,
   reconnecting,
   paused,
+  reconnectAttempts,
+  retryCountdown,
 }: {
   status: RealtimeStatus;
   insertCount: number;
@@ -123,11 +125,14 @@ function RealtimeIndicator({
   onReconnect: () => void;
   reconnecting: boolean;
   paused: boolean;
+  reconnectAttempts: number;
+  retryCountdown: number | null;
 }) {
   const meta = REALTIME_BADGE[status];
   const total = insertCount + deleteCount;
   const lastUpdate = lastSyncAt ?? lastChangeAt;
   const canReconnect = !paused && (status === "disconnected" || status === "error" || status === "connecting");
+  const showRetryInfo = !paused && (status === "disconnected" || status === "error" || status === "connecting") && reconnectAttempts > 0;
   return (
     <div className="flex flex-col gap-1 border-b border-border bg-panel/60 px-4 py-2 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -151,6 +156,12 @@ function RealtimeIndicator({
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {showRetryInfo ? (
+            <Badge variant="warning" className="font-mono" title="Tentativas automáticas de reconexão desde a última conexão saudável">
+              tentativa {reconnectAttempts}
+              {retryCountdown !== null ? ` · próx. ${retryCountdown}s` : ""}
+            </Badge>
+          ) : null}
           <Badge variant={total > 0 ? "secondary" : "outline"} className="font-mono">
             {total} sync{total === 1 ? "" : "s"} / 60s
           </Badge>
@@ -196,6 +207,9 @@ const Chat = () => {
   const [realtimeLastChangeAt, setRealtimeLastChangeAt] = useState<Date | null>(null);
   const [recentSyncs, setRecentSyncs] = useState<Array<{ kind: "insert" | "delete"; at: number }>>([]);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [nextRetryAt, setNextRetryAt] = useState<number | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const [reconnectNonce, setReconnectNonce] = useState(0);
   const [reconnecting, setReconnecting] = useState(false);
   const [realtimePaused, setRealtimePaused] = useState(false);
@@ -349,8 +363,11 @@ const Chat = () => {
       if (cancelled) return;
       attempt += 1;
       const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt - 1, 4));
+      setReconnectAttempts(attempt);
+      setNextRetryAt(Date.now() + delay);
       setRealtimeReason(`${reason} — nova tentativa em ${Math.round(delay / 1000)}s`);
       reconnectTimer = window.setTimeout(() => {
+        setNextRetryAt(null);
         if (!cancelled) connect();
       }, delay);
     };
@@ -392,6 +409,8 @@ const Chat = () => {
         .subscribe((subStatus) => {
           if (subStatus === "SUBSCRIBED") {
             attempt = 0;
+            setReconnectAttempts(0);
+            setNextRetryAt(null);
             updateStatus("connected", "Canal de mensagens ativo");
           } else if (subStatus === "CHANNEL_ERROR") {
             updateStatus("error", "Erro de canal no Supabase Realtime");
@@ -415,6 +434,8 @@ const Chat = () => {
     const handleOnline = () => {
       if (realtimeStatusRef.current !== "connected") {
         attempt = 0;
+        setReconnectAttempts(0);
+        setNextRetryAt(null);
         if (reconnectTimer) {
           window.clearTimeout(reconnectTimer);
           reconnectTimer = null;
@@ -448,10 +469,27 @@ const Chat = () => {
     setRealtimeStatus("connecting");
     setRealtimeReason("Reconexão manual solicitada");
     setRealtimeLastChangeAt(new Date());
+    setReconnectAttempts(0);
+    setNextRetryAt(null);
     setReconnectNonce((n) => n + 1);
     // The realtime effect will tear down and re-subscribe; clear the spinner shortly after
     window.setTimeout(() => setReconnecting(false), 1500);
   }, [realtimePaused]);
+
+  // Tick countdown to next retry while a retry is scheduled
+  useEffect(() => {
+    if (nextRetryAt === null) {
+      setRetryCountdown(null);
+      return;
+    }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((nextRetryAt - Date.now()) / 1000));
+      setRetryCountdown(remaining);
+    };
+    update();
+    const interval = window.setInterval(update, 500);
+    return () => window.clearInterval(interval);
+  }, [nextRetryAt]);
 
   // Drop recent syncs older than 60s so the counter reflects only the latest activity
   useEffect(() => {
@@ -779,6 +817,8 @@ const Chat = () => {
             onReconnect={handleManualReconnect}
             reconnecting={reconnecting}
             paused={realtimePaused}
+            reconnectAttempts={reconnectAttempts}
+            retryCountdown={retryCountdown}
           />
           <div ref={scrollRef} className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
             {hasMore && !loading ? (
