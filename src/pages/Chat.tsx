@@ -309,6 +309,7 @@ const Chat = () => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const previousScrollHeightRef = useRef<number>(0);
   const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
+  const nextConnectReasonRef = useRef<string>("Conexão inicial");
   useEffect(() => {
     realtimeStatusRef.current = realtimeStatus;
   }, [realtimeStatus]);
