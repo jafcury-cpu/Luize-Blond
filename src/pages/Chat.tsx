@@ -485,6 +485,7 @@ const Chat = () => {
     setRealtimeStatus("connecting");
     setRealtimeReason("Reconexão manual solicitada");
     setRealtimeLastChangeAt(new Date());
+    appendRealtimeLog("manual", "Reconexão manual solicitada");
     setReconnectAttempts(0);
     setNextRetryAt(null);
     setReconnectNonce((n) => n + 1);
