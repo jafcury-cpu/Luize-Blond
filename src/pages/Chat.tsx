@@ -398,6 +398,8 @@ const Chat = () => {
         .subscribe((subStatus) => {
           if (subStatus === "SUBSCRIBED") {
             attempt = 0;
+            setReconnectAttempts(0);
+            setNextRetryAt(null);
             updateStatus("connected", "Canal de mensagens ativo");
           } else if (subStatus === "CHANNEL_ERROR") {
             updateStatus("error", "Erro de canal no Supabase Realtime");
