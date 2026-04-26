@@ -190,6 +190,35 @@ const Configuracoes = () => {
             </div>
           )}
 
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-border bg-panel-elevated p-4">
+            <div className="flex flex-1 items-start gap-3">
+              <BellOff className="mt-0.5 size-4 text-muted-foreground" />
+              <div className="space-y-1">
+                <label htmlFor="mute-realtime-toasts" className="text-sm font-medium text-foreground">
+                  Silenciar toasts de realtime no chat
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Esconde apenas as notificações de conexão/reconexão do canal realtime. O indicador no topo do chat, status, contadores e demais alertas continuam ativos.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="mute-realtime-toasts"
+              checked={muteRealtimeToasts}
+              onCheckedChange={(checked) => {
+                setMuteRealtimeToasts(checked);
+                setRealtimeToastsMuted(checked);
+                toast({
+                  title: checked ? "Toasts de realtime silenciados" : "Toasts de realtime ativos",
+                  description: checked
+                    ? "Você não receberá mais avisos de conexão/reconexão do canal."
+                    : "Avisos de conexão e reconexão voltarão a aparecer.",
+                });
+              }}
+              aria-label="Silenciar toasts de realtime"
+            />
+          </div>
+
           <Button type="submit" variant="hero" disabled={saving || loading || Boolean(webhookError)}>
             <Save className="size-4" />
             {saving ? "Salvando..." : "Salvar configurações"}
