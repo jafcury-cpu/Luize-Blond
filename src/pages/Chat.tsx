@@ -458,6 +458,8 @@ const Chat = () => {
     setRealtimeStatus("connecting");
     setRealtimeReason("Reconexão manual solicitada");
     setRealtimeLastChangeAt(new Date());
+    setReconnectAttempts(0);
+    setNextRetryAt(null);
     setReconnectNonce((n) => n + 1);
     // The realtime effect will tear down and re-subscribe; clear the spinner shortly after
     window.setTimeout(() => setReconnecting(false), 1500);
