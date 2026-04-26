@@ -352,8 +352,11 @@ const Chat = () => {
       if (cancelled) return;
       attempt += 1;
       const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt - 1, 4));
+      setReconnectAttempts(attempt);
+      setNextRetryAt(Date.now() + delay);
       setRealtimeReason(`${reason} — nova tentativa em ${Math.round(delay / 1000)}s`);
       reconnectTimer = window.setTimeout(() => {
+        setNextRetryAt(null);
         if (!cancelled) connect();
       }, delay);
     };
