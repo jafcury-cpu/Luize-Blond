@@ -320,6 +320,9 @@ const Chat = () => {
       // Skip the very first "connected" toast on initial mount to avoid noise
       if (next === "connected" && previous === null) return;
 
+      // Honor user preference to silence realtime connection toasts
+      if (realtimeToastsMutedRef.current) return;
+
       if (next === "connected") {
         sonnerToast.success("Realtime reconectado", {
           description: `${reason} · atualizado às ${formatNow()}`,
