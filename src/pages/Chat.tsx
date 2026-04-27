@@ -41,9 +41,11 @@ import {
   REALTIME_TOAST_SEVERITY_KEY,
   setRealtimeEventLog,
   setRealtimeStatusSnapshot,
+  setRealtimeToastSeverity,
   shouldShowRealtimeToast,
   type RealtimeToastSeverity,
 } from "@/lib/chat-preferences";
+import { fetchRealtimeToastSeverityFromCloud } from "@/lib/realtime-toast-severity-cloud";
 import { formatDateTime } from "@/lib/luize-mocks";
 
 const PAGE_SIZE = 200;
