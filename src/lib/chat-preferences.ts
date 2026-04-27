@@ -94,6 +94,15 @@ export type PersistedRealtimeEvent = {
   at: number;
   status: PersistedRealtimeStatus;
   reason: string;
+  /** Tab that produced this event. Used to detect cross-tab transitions. */
+  tabId?: string;
+};
+
+export type PersistedRealtimeStatusSnapshot = {
+  status: PersistedRealtimeStatus;
+  reason: string;
+  at: number;
+  tabId: string;
 };
 
 const VALID_STATUSES: PersistedRealtimeStatus[] = ["connecting", "connected", "disconnected", "error", "paused"];
