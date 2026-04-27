@@ -416,6 +416,57 @@ function RealtimeHistoryPopover({
   );
 }
 
+function SnoozeToastsButton({
+  snoozedUntil,
+  onChange,
+}: {
+  snoozedUntil: number | null;
+  onChange: (next: number | null) => void;
+}) {
+  // Re-render every 30s so the countdown stays accurate without listener spam.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (snoozedUntil === null) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, [snoozedUntil]);
+
+  const remainingMs = snoozedUntil ? Math.max(0, snoozedUntil - Date.now()) : 0;
+  const minutesLeft = Math.ceil(remainingMs / 60_000);
+  const isSnoozed = snoozedUntil !== null && remainingMs > 0;
+
+  const handleClick = () => {
+    if (isSnoozed) {
+      onChange(null);
+    } else {
+      onChange(Date.now() + 60 * 60 * 1000);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant={isSnoozed ? "secondary" : "outline"}
+      size="sm"
+      onClick={handleClick}
+      className="ml-1 h-7 gap-1.5 px-2 text-[11px]"
+      aria-label={
+        isSnoozed
+          ? `Reativar toasts de realtime (silenciados por mais ${minutesLeft} min)`
+          : "Silenciar toasts de realtime por 1 hora"
+      }
+      title={
+        isSnoozed
+          ? `Toasts silenciados — restam ${minutesLeft} min. Clique para reativar.`
+          : "Silencia os toasts de realtime por 1 hora sem mexer na severidade salva."
+      }
+    >
+      {isSnoozed ? <BellOff className="size-3" /> : <BellRing className="size-3" />}
+      {isSnoozed ? `Silenciado · ${minutesLeft}m` : "Silenciar 1h"}
+    </Button>
+  );
+}
+
 function RealtimeIndicator({
   status,
   insertCount,
@@ -428,6 +479,8 @@ function RealtimeIndicator({
   paused,
   eventLog,
   onClearLog,
+  snoozedUntil,
+  onSnoozeChange,
 }: {
   status: RealtimeStatus;
   insertCount: number;
@@ -440,6 +493,8 @@ function RealtimeIndicator({
   paused: boolean;
   eventLog: RealtimeEvent[];
   onClearLog: () => void;
+  snoozedUntil: number | null;
+  onSnoozeChange: (next: number | null) => void;
 }) {
   const meta = REALTIME_BADGE[status];
   const total = insertCount + deleteCount;
