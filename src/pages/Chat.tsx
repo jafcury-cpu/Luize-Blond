@@ -717,6 +717,8 @@ const Chat = () => {
       setRealtimeReason(reason);
       appendEvent(next, reason);
       notifyTransition(next, reason);
+      // Publish snapshot so other tabs can mirror this state instantly
+      setRealtimeStatusSnapshot({ status: next, reason, at: Date.now(), tabId: getTabId() });
     };
 
     const scheduleReconnect = (reason: string) => {
