@@ -257,7 +257,7 @@ const Configuracoes = () => {
             </div>
             <Select
               value={toastSeverity}
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 const next = value as RealtimeToastSeverity;
                 setToastSeverity(next);
                 setRealtimeToastSeverity(next);
@@ -280,6 +280,16 @@ const Configuracoes = () => {
                   },
                 };
                 toast(labelMap[next]);
+
+                // Sync the preference to the cloud so it follows the user across devices.
+                if (user) {
+                  const result = await pushRealtimeToastSeverityToCloud(user.id, next);
+                  if (!result.ok) {
+                    sonnerToast.warning("Preferência salva apenas neste dispositivo", {
+                      description: "Não foi possível sincronizar com a nuvem agora. Tentaremos de novo na próxima alteração.",
+                    });
+                  }
+                }
               }}
             >
               <SelectTrigger id="realtime-toast-severity" className="w-full sm:w-64" aria-label="Severidade dos toasts de realtime">
