@@ -185,7 +185,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (settingsError) {
-      throw new Error(`Falha ao carregar configurações: ${settingsError.message}`);
+      console.error("chat-webhook settings load error:", settingsError);
+      throw new Error("SETTINGS_LOAD_FAILED");
     }
 
     if (!settingsRow?.webhook_url) {
