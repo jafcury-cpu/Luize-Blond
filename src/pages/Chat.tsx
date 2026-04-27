@@ -609,6 +609,7 @@ const Chat = () => {
       window.removeEventListener(REALTIME_STATUS_SNAPSHOT_CHANGED_EVENT, onLocal);
     };
   }, []);
+  const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const previousScrollHeightRef = useRef<number>(0);
   const realtimeStatusRef = useRef<RealtimeStatus>("connecting");
