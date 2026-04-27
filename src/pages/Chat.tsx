@@ -168,20 +168,22 @@ function exportEventLogToCsv(events: RealtimeEvent[]): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-const EVENT_DOT: Record<RealtimeStatus, string> = {
+const EVENT_DOT: Record<RealtimeEventStatus, string> = {
   connecting: "bg-muted-foreground",
   connected: "bg-emerald-500",
   disconnected: "bg-amber-500",
   error: "bg-destructive",
   paused: "bg-muted-foreground",
+  settings: "bg-accent-blue",
 };
 
-const EVENT_LABEL: Record<RealtimeStatus, string> = {
+const EVENT_LABEL: Record<RealtimeEventStatus, string> = {
   connecting: "Conectando",
   connected: "Conectado",
   disconnected: "Desconectado",
   error: "Erro",
   paused: "Pausado",
+  settings: "Preferência",
 };
 
 const OPEN_REALTIME_HISTORY_EVENT = "luize:open-realtime-history";
