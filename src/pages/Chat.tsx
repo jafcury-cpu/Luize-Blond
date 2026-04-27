@@ -578,6 +578,8 @@ const Chat = () => {
       if (!snap) return;
       if (snap.tabId === ownTabId) return; // local change, already handled inline
       if (snap.at <= lastAppliedAt) return;
+      // The connection snapshot never carries "settings" — that's an event-log-only marker.
+      if (snap.status === "settings") return;
       lastAppliedAt = snap.at;
 
       // Mirror state so the badge/UI reflects the live status from the other tab
