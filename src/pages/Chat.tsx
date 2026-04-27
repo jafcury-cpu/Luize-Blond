@@ -625,14 +625,18 @@ const Chat = () => {
     realtimeStatusRef.current = realtimeStatus;
   }, [realtimeStatus]);
 
-  // Live preference: realtime toast severity (per-device, stored in localStorage)
-  const realtimeToastSeverityRef = useRef<RealtimeToastSeverity>(getRealtimeToastSeverity());
+  // Live preference: realtime toast severity (per-device, stored in localStorage).
+  // We track the *effective* severity so an active snooze automatically silences toasts
+  // without us having to thread an extra check through every emit site.
+  const realtimeToastSeverityRef = useRef<RealtimeToastSeverity>(getEffectiveRealtimeToastSeverity());
+  const [snoozedUntil, setSnoozedUntil] = useState<number | null>(() => getRealtimeToastSnoozeUntil());
   useEffect(() => {
     const sync = () => {
-      realtimeToastSeverityRef.current = getRealtimeToastSeverity();
+      realtimeToastSeverityRef.current = getEffectiveRealtimeToastSeverity();
+      setSnoozedUntil(getRealtimeToastSnoozeUntil());
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === REALTIME_TOAST_SEVERITY_KEY) sync();
+      if (event.key === REALTIME_TOAST_SEVERITY_KEY || event.key === REALTIME_TOAST_SNOOZE_UNTIL_KEY) sync();
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
@@ -641,6 +645,21 @@ const Chat = () => {
       window.removeEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
     };
   }, []);
+
+  // Auto-clear the snooze the moment it expires, so the UI updates and the next
+  // legitimate toast can fire without requiring a tab switch / focus event.
+  useEffect(() => {
+    if (snoozedUntil === null) return;
+    const remaining = snoozedUntil - Date.now();
+    if (remaining <= 0) {
+      setRealtimeToastSnoozeUntil(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setRealtimeToastSnoozeUntil(null); // emits CHAT_PREFS_CHANGED_EVENT → ref + state sync
+    }, remaining + 50);
+    return () => window.clearTimeout(timer);
+  }, [snoozedUntil]);
 
   // One-shot: hydrate the severity preference from the cloud so it follows the user
   // across devices, even if they never opened the Configurações page on this device.
