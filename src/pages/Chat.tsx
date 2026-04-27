@@ -117,6 +117,7 @@ const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "de
 };
 
 type RealtimeStatus = "connecting" | "connected" | "disconnected" | "error" | "paused";
+type RealtimeEventStatus = RealtimeStatus | "settings";
 
 const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string; dot: string }> = {
   connecting: { variant: "secondary", label: "Conectando realtime", dot: "bg-muted-foreground animate-pulse" },
@@ -128,7 +129,7 @@ const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | 
 
 type RealtimeEvent = {
   at: number;
-  status: RealtimeStatus;
+  status: RealtimeEventStatus;
   reason: string;
 };
 
