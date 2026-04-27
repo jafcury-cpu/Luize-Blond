@@ -237,11 +237,12 @@ Deno.serve(async (req) => {
         );
       } catch (pingError) {
         const isTimeout = pingError instanceof DOMException && pingError.name === "TimeoutError";
+        console.error("chat-webhook ping error:", pingError);
         return new Response(
           JSON.stringify({
             status: isTimeout ? "timeout" : "offline",
             latencyMs: Date.now() - startedAt,
-            message: pingError instanceof Error ? pingError.message : "Falha ao contactar webhook.",
+            message: isTimeout ? "Tempo esgotado ao contactar webhook." : "Falha ao contactar webhook.",
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
