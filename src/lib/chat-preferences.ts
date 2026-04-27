@@ -83,13 +83,22 @@ export function shouldShowRealtimeToast(
   status: PersistedRealtimeStatus,
 ): boolean {
   if (severity === "none") return false;
+  // "settings" is a non-connection event (preference change) — never toast it here;
+  // the Configurações page already shows its own confirmation toast.
+  if (status === "settings") return false;
   if (severity === "errors_only") return status === "error";
   if (severity === "warnings_and_errors") return status === "error" || status === "disconnected";
   // "all": show every transition we already toast (skip "paused" — it has its own dedicated UI)
   return status !== "paused";
 }
 
-export type PersistedRealtimeStatus = "connecting" | "connected" | "disconnected" | "error" | "paused";
+export type PersistedRealtimeStatus =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error"
+  | "paused"
+  | "settings";
 export type PersistedRealtimeEvent = {
   at: number;
   status: PersistedRealtimeStatus;
@@ -105,7 +114,7 @@ export type PersistedRealtimeStatusSnapshot = {
   tabId: string;
 };
 
-const VALID_STATUSES: PersistedRealtimeStatus[] = ["connecting", "connected", "disconnected", "error", "paused"];
+const VALID_STATUSES: PersistedRealtimeStatus[] = ["connecting", "connected", "disconnected", "error", "paused", "settings"];
 
 function isPersistedEvent(value: unknown): value is PersistedRealtimeEvent {
   if (!value || typeof value !== "object") return false;
@@ -151,6 +160,32 @@ export function clearRealtimeEventLog(): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Append a single event to the persisted realtime log. De-duplicates back-to-back
+ * identical (status + reason) entries, trims to REALTIME_EVENT_LOG_MAX, and
+ * notifies listeners (same-tab via custom event, cross-tab via storage).
+ *
+ * Use this from any module that wants to record a notable change in the chat's
+ * realtime history (e.g. preference changes from the Settings page).
+ */
+export function appendRealtimeEvent(event: {
+  status: PersistedRealtimeStatus;
+  reason: string;
+  at?: number;
+  tabId?: string;
+}): void {
+  const current = getRealtimeEventLog();
+  const last = current[current.length - 1];
+  if (last && last.status === event.status && last.reason === event.reason) return;
+  const next: PersistedRealtimeEvent = {
+    at: event.at ?? Date.now(),
+    status: event.status,
+    reason: event.reason,
+    tabId: event.tabId,
+  };
+  setRealtimeEventLog([...current, next]);
 }
 
 function isSnapshot(value: unknown): value is PersistedRealtimeStatusSnapshot {

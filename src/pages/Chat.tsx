@@ -117,6 +117,7 @@ const STATUS_BADGE: Record<WebhookStatus, { variant: "success" | "warning" | "de
 };
 
 type RealtimeStatus = "connecting" | "connected" | "disconnected" | "error" | "paused";
+type RealtimeEventStatus = RealtimeStatus | "settings";
 
 const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | "destructive" | "secondary"; label: string; dot: string }> = {
   connecting: { variant: "secondary", label: "Conectando realtime", dot: "bg-muted-foreground animate-pulse" },
@@ -128,7 +129,7 @@ const REALTIME_BADGE: Record<RealtimeStatus, { variant: "success" | "warning" | 
 
 type RealtimeEvent = {
   at: number;
-  status: RealtimeStatus;
+  status: RealtimeEventStatus;
   reason: string;
 };
 
@@ -167,20 +168,22 @@ function exportEventLogToCsv(events: RealtimeEvent[]): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-const EVENT_DOT: Record<RealtimeStatus, string> = {
+const EVENT_DOT: Record<RealtimeEventStatus, string> = {
   connecting: "bg-muted-foreground",
   connected: "bg-emerald-500",
   disconnected: "bg-amber-500",
   error: "bg-destructive",
   paused: "bg-muted-foreground",
+  settings: "bg-accent-blue",
 };
 
-const EVENT_LABEL: Record<RealtimeStatus, string> = {
+const EVENT_LABEL: Record<RealtimeEventStatus, string> = {
   connecting: "Conectando",
   connected: "Conectado",
   disconnected: "Desconectado",
   error: "Erro",
   paused: "Pausado",
+  settings: "Preferência",
 };
 
 const OPEN_REALTIME_HISTORY_EVENT = "luize:open-realtime-history";
@@ -198,7 +201,7 @@ function RealtimeHistoryPopover({
   onClearLog: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<Set<RealtimeStatus>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<RealtimeEventStatus>>(new Set());
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -213,7 +216,7 @@ function RealtimeHistoryPopover({
     return () => window.removeEventListener(OPEN_REALTIME_HISTORY_EVENT, handler);
   }, []);
 
-  const toggleStatus = useCallback((status: RealtimeStatus) => {
+  const toggleStatus = useCallback((status: RealtimeEventStatus) => {
     setStatusFilter((current) => {
       const next = new Set(current);
       if (next.has(status)) next.delete(status);
@@ -244,7 +247,7 @@ function RealtimeHistoryPopover({
 
   const filtersActive = statusFilter.size > 0 || dateFilter !== undefined;
   // Status chips — keep meaningful transitions, hide "connecting" intermediate to reduce clutter
-  const filterableStatuses: RealtimeStatus[] = ["connected", "disconnected", "error", "paused", "connecting"];
+  const filterableStatuses: RealtimeEventStatus[] = ["connected", "disconnected", "error", "paused", "connecting", "settings"];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -575,6 +578,8 @@ const Chat = () => {
       if (!snap) return;
       if (snap.tabId === ownTabId) return; // local change, already handled inline
       if (snap.at <= lastAppliedAt) return;
+      // The connection snapshot never carries "settings" — that's an event-log-only marker.
+      if (snap.status === "settings") return;
       lastAppliedAt = snap.at;
 
       // Mirror state so the badge/UI reflects the live status from the other tab
