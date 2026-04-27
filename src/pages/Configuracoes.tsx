@@ -1,6 +1,6 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BellRing, Copy, Link2, Save, Send, BellOff, Radio } from "lucide-react";
+import { BellRing, Copy, Link2, Save, Send, BellOff, Radio, Check, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
