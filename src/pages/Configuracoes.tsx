@@ -14,8 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast as sonnerToast } from "sonner";
 import {
+  appendRealtimeEvent,
   CHAT_PREFS_CHANGED_EVENT,
   getRealtimeToastSeverity,
+  getTabId,
   REALTIME_TOAST_SEVERITY_KEY,
   setRealtimeToastSeverity,
   shouldShowRealtimeToast,
