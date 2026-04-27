@@ -22,6 +22,10 @@ import {
   type RealtimeToastSeverity,
   type PersistedRealtimeStatus,
 } from "@/lib/chat-preferences";
+import {
+  fetchRealtimeToastSeverityFromCloud,
+  pushRealtimeToastSeverityToCloud,
+} from "@/lib/realtime-toast-severity-cloud";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
