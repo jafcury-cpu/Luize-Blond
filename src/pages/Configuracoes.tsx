@@ -243,65 +243,69 @@ const Configuracoes = () => {
             </div>
           )}
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-panel-elevated p-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex flex-1 items-start gap-3">
-              <BellOff className="mt-0.5 size-4 text-muted-foreground" />
-              <div className="space-y-1">
-                <label htmlFor="realtime-toast-severity" className="text-sm font-medium text-foreground">
-                  Severidade dos toasts de realtime no chat
-                </label>
-                <p className="text-sm text-muted-foreground">
-                  Escolha quais notificações de conexão você quer receber. O indicador no topo do chat, status, contadores e o histórico continuam ativos independente da escolha.
-                </p>
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-panel-elevated p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-1 items-start gap-3">
+                <BellOff className="mt-0.5 size-4 text-muted-foreground" />
+                <div className="space-y-1">
+                  <label htmlFor="realtime-toast-severity" className="text-sm font-medium text-foreground">
+                    Severidade dos toasts de realtime no chat
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Escolha quais notificações de conexão você quer receber. O indicador no topo do chat, status, contadores e o histórico continuam ativos independente da escolha.
+                  </p>
+                </div>
               </div>
-            </div>
-            <Select
-              value={toastSeverity}
-              onValueChange={async (value) => {
-                const next = value as RealtimeToastSeverity;
-                setToastSeverity(next);
-                setRealtimeToastSeverity(next);
-                const labelMap: Record<RealtimeToastSeverity, { title: string; description: string }> = {
-                  all: {
-                    title: "Mostrando todos os toasts",
-                    description: "Você verá conexão, reconexão, avisos e erros do canal realtime.",
-                  },
-                  warnings_and_errors: {
-                    title: "Apenas avisos e erros",
-                    description: "Você só verá toasts quando o canal cair (warning) ou falhar (error).",
-                  },
-                  errors_only: {
-                    title: "Apenas erros",
-                    description: "Você só receberá toast em caso de falha do canal realtime.",
-                  },
-                  none: {
-                    title: "Toasts de realtime silenciados",
-                    description: "Nenhuma notificação de conexão será exibida.",
-                  },
-                };
-                toast(labelMap[next]);
+              <Select
+                value={toastSeverity}
+                onValueChange={async (value) => {
+                  const next = value as RealtimeToastSeverity;
+                  setToastSeverity(next);
+                  setRealtimeToastSeverity(next);
+                  const labelMap: Record<RealtimeToastSeverity, { title: string; description: string }> = {
+                    all: {
+                      title: "Mostrando todos os toasts",
+                      description: "Você verá conexão, reconexão, avisos e erros do canal realtime.",
+                    },
+                    warnings_and_errors: {
+                      title: "Apenas avisos e erros",
+                      description: "Você só verá toasts quando o canal cair (warning) ou falhar (error).",
+                    },
+                    errors_only: {
+                      title: "Apenas erros",
+                      description: "Você só receberá toast em caso de falha do canal realtime.",
+                    },
+                    none: {
+                      title: "Toasts de realtime silenciados",
+                      description: "Nenhuma notificação de conexão será exibida.",
+                    },
+                  };
+                  toast(labelMap[next]);
 
-                // Sync the preference to the cloud so it follows the user across devices.
-                if (user) {
-                  const result = await pushRealtimeToastSeverityToCloud(user.id, next);
-                  if (!result.ok) {
-                    sonnerToast.warning("Preferência salva apenas neste dispositivo", {
-                      description: "Não foi possível sincronizar com a nuvem agora. Tentaremos de novo na próxima alteração.",
-                    });
+                  // Sync the preference to the cloud so it follows the user across devices.
+                  if (user) {
+                    const result = await pushRealtimeToastSeverityToCloud(user.id, next);
+                    if (!result.ok) {
+                      sonnerToast.warning("Preferência salva apenas neste dispositivo", {
+                        description: "Não foi possível sincronizar com a nuvem agora. Tentaremos de novo na próxima alteração.",
+                      });
+                    }
                   }
-                }
-              }}
-            >
-              <SelectTrigger id="realtime-toast-severity" className="w-full sm:w-64" aria-label="Severidade dos toasts de realtime">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tudo (info, avisos e erros)</SelectItem>
-                <SelectItem value="warnings_and_errors">Avisos e erros</SelectItem>
-                <SelectItem value="errors_only">Apenas erros</SelectItem>
-                <SelectItem value="none">Silenciar tudo</SelectItem>
-              </SelectContent>
-            </Select>
+                }}
+              >
+                <SelectTrigger id="realtime-toast-severity" className="w-full sm:w-64" aria-label="Severidade dos toasts de realtime">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tudo (info, avisos e erros)</SelectItem>
+                  <SelectItem value="warnings_and_errors">Avisos e erros</SelectItem>
+                  <SelectItem value="errors_only">Apenas erros</SelectItem>
+                  <SelectItem value="none">Silenciar tudo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <SeverityMatrix severity={toastSeverity} />
           </div>
 
           <RealtimeToastSimulator severity={toastSeverity} />
