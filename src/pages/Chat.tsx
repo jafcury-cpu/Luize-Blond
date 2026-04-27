@@ -635,7 +635,24 @@ const Chat = () => {
     };
   }, []);
 
-  const checkWebhook = useCallback(async () => {
+  // One-shot: hydrate the severity preference from the cloud so it follows the user
+  // across devices, even if they never opened the Configurações page on this device.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const cloud = await fetchRealtimeToastSeverityFromCloud(user.id);
+      if (cancelled || !cloud) return;
+      if (cloud !== getRealtimeToastSeverity()) {
+        setRealtimeToastSeverity(cloud); // updates cache + emits CHAT_PREFS_CHANGED_EVENT (ref will sync)
+      } else {
+        realtimeToastSeverityRef.current = cloud;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
     setStatus("checking");
     setStatusDetail(null);
     try {
