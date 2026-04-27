@@ -521,6 +521,7 @@ function RealtimeIndicator({
               {reconnecting ? "Reconectando..." : "Reconectar agora"}
             </Button>
           ) : null}
+          <SnoozeToastsButton snoozedUntil={snoozedUntil} onChange={onSnoozeChange} />
           <RealtimeHistoryPopover eventLog={eventLog} onClearLog={onClearLog} />
         </div>
         <div className="flex items-center gap-2">
