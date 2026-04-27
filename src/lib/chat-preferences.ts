@@ -187,6 +187,8 @@ export function appendRealtimeEvent(event: {
   };
   setRealtimeEventLog([...current, next]);
 }
+
+function isSnapshot(value: unknown): value is PersistedRealtimeStatusSnapshot {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
