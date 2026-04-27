@@ -83,13 +83,22 @@ export function shouldShowRealtimeToast(
   status: PersistedRealtimeStatus,
 ): boolean {
   if (severity === "none") return false;
+  // "settings" is a non-connection event (preference change) — never toast it here;
+  // the Configurações page already shows its own confirmation toast.
+  if (status === "settings") return false;
   if (severity === "errors_only") return status === "error";
   if (severity === "warnings_and_errors") return status === "error" || status === "disconnected";
   // "all": show every transition we already toast (skip "paused" — it has its own dedicated UI)
   return status !== "paused";
 }
 
-export type PersistedRealtimeStatus = "connecting" | "connected" | "disconnected" | "error" | "paused";
+export type PersistedRealtimeStatus =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error"
+  | "paused"
+  | "settings";
 export type PersistedRealtimeEvent = {
   at: number;
   status: PersistedRealtimeStatus;
