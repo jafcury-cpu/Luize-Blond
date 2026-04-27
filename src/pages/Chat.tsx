@@ -653,6 +653,8 @@ const Chat = () => {
       cancelled = true;
     };
   }, [user]);
+
+  const checkWebhook = useCallback(async () => {
     setStatus("checking");
     setStatusDetail(null);
     try {
