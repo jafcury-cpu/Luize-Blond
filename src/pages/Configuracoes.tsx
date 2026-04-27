@@ -22,6 +22,10 @@ import {
   type RealtimeToastSeverity,
   type PersistedRealtimeStatus,
 } from "@/lib/chat-preferences";
+import {
+  fetchRealtimeToastSeverityFromCloud,
+  pushRealtimeToastSeverityToCloud,
+} from "@/lib/realtime-toast-severity-cloud";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
@@ -94,7 +98,11 @@ const Configuracoes = () => {
 
     const loadSettings = async () => {
       setLoading(true);
-      const { data, error } = await supabase.from("settings").select("webhook_url, timezone, telegram_bot_token, telegram_chat_id").eq("user_id", user.id).maybeSingle();
+      const { data, error } = await supabase
+        .from("settings")
+        .select("webhook_url, timezone, telegram_bot_token, telegram_chat_id, realtime_toast_severity")
+        .eq("user_id", user.id)
+        .maybeSingle();
       if (error) {
         toast({ variant: "destructive", title: "Falha ao carregar configurações", description: error.message });
       } else if (data) {
@@ -102,6 +110,20 @@ const Configuracoes = () => {
         setTimezone(data.timezone ?? "America/Sao_Paulo");
         setTelegramBotToken(data.telegram_bot_token ?? "");
         setTelegramChatId(data.telegram_chat_id ?? "");
+        // Adopt cloud severity if it differs from the local cache, so the
+        // preference follows the user across devices.
+        const cloudSeverity = (data as { realtime_toast_severity?: unknown }).realtime_toast_severity;
+        if (
+          typeof cloudSeverity === "string" &&
+          (["all", "warnings_and_errors", "errors_only", "none"] as const).includes(
+            cloudSeverity as RealtimeToastSeverity,
+          ) &&
+          cloudSeverity !== getRealtimeToastSeverity()
+        ) {
+          const next = cloudSeverity as RealtimeToastSeverity;
+          setRealtimeToastSeverity(next); // updates cache + emits CHAT_PREFS_CHANGED_EVENT
+          setToastSeverity(next);
+        }
       }
       setLoading(false);
     };
@@ -235,7 +257,7 @@ const Configuracoes = () => {
             </div>
             <Select
               value={toastSeverity}
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 const next = value as RealtimeToastSeverity;
                 setToastSeverity(next);
                 setRealtimeToastSeverity(next);
@@ -258,6 +280,16 @@ const Configuracoes = () => {
                   },
                 };
                 toast(labelMap[next]);
+
+                // Sync the preference to the cloud so it follows the user across devices.
+                if (user) {
+                  const result = await pushRealtimeToastSeverityToCloud(user.id, next);
+                  if (!result.ok) {
+                    sonnerToast.warning("Preferência salva apenas neste dispositivo", {
+                      description: "Não foi possível sincronizar com a nuvem agora. Tentaremos de novo na próxima alteração.",
+                    });
+                  }
+                }
               }}
             >
               <SelectTrigger id="realtime-toast-severity" className="w-full sm:w-64" aria-label="Severidade dos toasts de realtime">

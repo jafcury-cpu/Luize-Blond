@@ -41,9 +41,11 @@ import {
   REALTIME_TOAST_SEVERITY_KEY,
   setRealtimeEventLog,
   setRealtimeStatusSnapshot,
+  setRealtimeToastSeverity,
   shouldShowRealtimeToast,
   type RealtimeToastSeverity,
 } from "@/lib/chat-preferences";
+import { fetchRealtimeToastSeverityFromCloud } from "@/lib/realtime-toast-severity-cloud";
 import { formatDateTime } from "@/lib/luize-mocks";
 
 const PAGE_SIZE = 200;
@@ -634,6 +636,25 @@ const Chat = () => {
       window.removeEventListener(CHAT_PREFS_CHANGED_EVENT, sync);
     };
   }, []);
+
+  // One-shot: hydrate the severity preference from the cloud so it follows the user
+  // across devices, even if they never opened the Configurações page on this device.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const cloud = await fetchRealtimeToastSeverityFromCloud(user.id);
+      if (cancelled || !cloud) return;
+      if (cloud !== getRealtimeToastSeverity()) {
+        setRealtimeToastSeverity(cloud); // updates cache + emits CHAT_PREFS_CHANGED_EVENT (ref will sync)
+      } else {
+        realtimeToastSeverityRef.current = cloud;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
