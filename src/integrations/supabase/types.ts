@@ -472,6 +472,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          realtime_toast_severity: string
           telegram_bot_token: string | null
           telegram_chat_id: string | null
           timezone: string
@@ -482,6 +483,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          realtime_toast_severity?: string
           telegram_bot_token?: string | null
           telegram_chat_id?: string | null
           timezone?: string
@@ -492,6 +494,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          realtime_toast_severity?: string
           telegram_bot_token?: string | null
           telegram_chat_id?: string | null
           timezone?: string
