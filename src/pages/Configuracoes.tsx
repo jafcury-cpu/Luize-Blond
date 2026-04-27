@@ -262,8 +262,25 @@ const Configuracoes = () => {
                 value={toastSeverity}
                 onValueChange={async (value) => {
                   const next = value as RealtimeToastSeverity;
+                  const previous = toastSeverity;
                   setToastSeverity(next);
                   setRealtimeToastSeverity(next);
+
+                  // Record the preference change in the realtime event history so the
+                  // user can audit when/why their notification severity changed.
+                  if (previous !== next) {
+                    const labelOf: Record<RealtimeToastSeverity, string> = {
+                      all: "tudo",
+                      warnings_and_errors: "avisos e erros",
+                      errors_only: "apenas erros",
+                      none: "silenciado",
+                    };
+                    appendRealtimeEvent({
+                      status: "settings",
+                      reason: `Severidade dos toasts: ${labelOf[previous]} → ${labelOf[next]}`,
+                      tabId: getTabId(),
+                    });
+                  }
                   const labelMap: Record<RealtimeToastSeverity, { title: string; description: string }> = {
                     all: {
                       title: "Mostrando todos os toasts",
