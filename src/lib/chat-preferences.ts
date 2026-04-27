@@ -9,6 +9,7 @@ export const REALTIME_EVENT_LOG_CHANGED_EVENT = "luize:chat-realtime-log-changed
 export const REALTIME_EVENT_LOG_MAX = 10;
 export const REALTIME_STATUS_SNAPSHOT_KEY = "luize.chat.realtimeStatusSnapshot";
 export const REALTIME_STATUS_SNAPSHOT_CHANGED_EVENT = "luize:chat-realtime-status-changed";
+export const REALTIME_TOAST_SNOOZE_UNTIL_KEY = "luize.chat.realtimeToastSnoozeUntil";
 
 // Per-tab id used to detect cross-tab transitions vs. local ones.
 let TAB_ID: string | null = null;
