@@ -1327,6 +1327,31 @@ const Chat = () => {
             paused={realtimePaused}
             eventLog={eventLog}
             onClearLog={handleClearEventLog}
+            snoozedUntil={snoozedUntil}
+            onSnoozeChange={(next) => {
+              setRealtimeToastSnoozeUntil(next);
+              setSnoozedUntil(next);
+              if (next === null) {
+                appendRealtimeEvent({
+                  status: "settings",
+                  reason: "Toasts de realtime reativados",
+                  tabId: getTabId(),
+                });
+                sonnerToast.success("Toasts reativados", {
+                  description: "Você voltará a receber notificações de conexão segundo a severidade configurada.",
+                });
+              } else {
+                const minutes = Math.round((next - Date.now()) / 60_000);
+                appendRealtimeEvent({
+                  status: "settings",
+                  reason: `Toasts silenciados por ${minutes} min (até ${new Date(next).toLocaleTimeString("pt-BR")})`,
+                  tabId: getTabId(),
+                });
+                sonnerToast.message("Toasts silenciados por 1h", {
+                  description: `Você não receberá toasts de realtime até ${new Date(next).toLocaleTimeString("pt-BR")}.`,
+                });
+              }
+            }}
           />
           <div ref={scrollRef} className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
             {hasMore && !loading ? (
