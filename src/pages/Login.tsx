@@ -46,9 +46,30 @@ const Login = () => {
     return <Navigate to={redirectTo} replace />;
   }
 
+  const clearStuckTimer = () => {
+    if (stuckTimerRef.current !== null) {
+      window.clearTimeout(stuckTimerRef.current);
+      stuckTimerRef.current = null;
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => () => clearStuckTimer(), []);
+
   const handleGoogleSignIn = async () => {
     setSubmitting(true);
+    setStuck(false);
     setError(null);
+    clearStuckTimer();
+    stuckTimerRef.current = window.setTimeout(() => {
+      setStuck(true);
+      void logError({
+        message: "[OAuth] Login travado: nenhum redirect/resposta após 15s",
+        source: "oauth.stuck",
+        severity: "warning",
+        context: { origin: window.location.origin },
+      });
+    }, STUCK_TIMEOUT_MS);
 
     // Pre-flight validation: ensure origin is HTTPS or localhost (Google rejects http on real domains)
     const origin = window.location.origin;
