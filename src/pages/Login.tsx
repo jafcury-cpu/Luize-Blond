@@ -295,4 +295,10 @@ const Login = () => {
   );
 };
 
-export default Login;
+const LoginWithBoundary = () => (
+  <LoginErrorBoundary supportHref={SUPPORT_HREF}>
+    <Login />
+  </LoginErrorBoundary>
+);
+
+export default LoginWithBoundary;
