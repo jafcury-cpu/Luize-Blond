@@ -1,7 +1,6 @@
 import { t } from "@/lib/i18n";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Badge } from "@/components/ui/badge";
 import { LuizeSidebar } from "@/components/luize/luize-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SessionStatusBadge } from "@/components/auth/session-status-badge";
