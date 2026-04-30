@@ -24,6 +24,12 @@ function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** Short, human-friendly error ID (e.g. "ERR-K3F7-92AB"). Easy to read aloud or paste. */
+export function generateErrorId(): string {
+  const part = () => Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4).padEnd(4, "X");
+  return `ERR-${part()}-${part()}`;
+}
+
 function getCurrentRoute(): string {
   if (typeof window === "undefined") return "";
   return window.location.pathname + window.location.search;
