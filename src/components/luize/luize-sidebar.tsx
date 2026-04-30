@@ -1,5 +1,6 @@
 import { t } from "@/lib/i18n";
 import {
+  ActivitySquare,
   AlertTriangle,
   Bell,
   BookUser,
