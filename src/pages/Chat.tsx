@@ -1529,6 +1529,11 @@ const Chat = () => {
         </div>
       </SectionCard>
     </div>
+      </TabsContent>
+      <TabsContent value="webhook" className="m-0">
+        <WebhookInspector />
+      </TabsContent>
+    </Tabs>
   );
 };
 
