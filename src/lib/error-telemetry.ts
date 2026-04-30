@@ -86,7 +86,7 @@ export async function logError(input: ErrorLogInput): Promise<string> {
   try {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id;
-    if (!userId) return;
+    if (!userId) return requestId;
 
     await supabase.from("error_logs").insert({
       user_id: userId,
