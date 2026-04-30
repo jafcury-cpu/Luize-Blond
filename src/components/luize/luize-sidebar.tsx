@@ -1,5 +1,6 @@
 import { t } from "@/lib/i18n";
 import {
+  ActivitySquare,
   AlertTriangle,
   Bell,
   BookUser,
@@ -43,6 +44,7 @@ const navigation = [
   { title: "Contatos", href: "/contatos", icon: BookUser },
   { title: "Comunicações", href: "/comunicacoes", icon: MessageCircle },
   { title: "Erros", href: "/erros", icon: AlertTriangle },
+  { title: "Status", href: "/status", icon: ActivitySquare },
   { title: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 

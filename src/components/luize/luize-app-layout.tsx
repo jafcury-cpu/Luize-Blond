@@ -14,6 +14,7 @@ const labels: Record<string, { title: string; subtitle: string }> = {
   "/documentos": { title: "Documentos", subtitle: "Busca, upload e memória operacional" },
   "/comunicacoes": { title: "Comunicações", subtitle: "Hub centralizado de canais e secretária IA" },
   "/erros": { title: "Erros", subtitle: "Telemetria e diagnóstico de falhas" },
+  "/status": { title: "Status", subtitle: "Health checks de auth, banco e webhook" },
   "/configuracoes": { title: "Configurações", subtitle: "Webhook, timezone e preferências" },
 };
 
