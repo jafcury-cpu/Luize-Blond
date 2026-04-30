@@ -1,6 +1,6 @@
 import { t } from "@/lib/i18n";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BellRing, Copy, Link2, Save, Send, BellOff, Radio, Check, X } from "lucide-react";
+import { BellRing, Copy, Link2, Save, Send, BellOff, Radio, Check, X, Bug } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SectionCard } from "@/components/luize/section-card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,12 @@ import {
   fetchRealtimeToastSeverityFromCloud,
   pushRealtimeToastSeverityToCloud,
 } from "@/lib/realtime-toast-severity-cloud";
+import {
+  DEBUG_MODE_CHANGED_EVENT,
+  isDebugModeEnabled,
+  pushDebug,
+  setDebugModeEnabled,
+} from "@/lib/debug-mode";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
