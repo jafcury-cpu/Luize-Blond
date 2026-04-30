@@ -229,17 +229,60 @@ const Login = () => {
                 </Alert>
               )}
 
+              {stuck && submitting && (
+                <Alert variant="destructive" role="alert">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>O login não respondeu</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p className="text-sm">
+                      Não recebemos resposta do Google em 15 segundos. A janela pode ter sido bloqueada, ou a rede está instável.
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button type="button" size="sm" variant="outline" onClick={handleCancelStuck}>
+                        Cancelar tentativa
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={handleHardReset}>
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Recarregar e limpar sessão
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Button
                 type="button"
                 variant="hero"
                 size="lg"
                 className="w-full"
-                disabled={submitting}
+                disabled={submitting && !stuck}
                 onClick={handleGoogleSignIn}
               >
-                {error ? <RefreshCw className="size-4" /> : <Chrome className="size-4" />}
-                {submitting ? "Conectando..." : error ? "Tentar novamente" : "Continuar com Google"}
+                {error || stuck ? <RefreshCw className="size-4" /> : <Chrome className="size-4" />}
+                {submitting && !stuck
+                  ? "Conectando..."
+                  : stuck
+                    ? "Tentar de novo"
+                    : error
+                      ? "Tentar novamente"
+                      : "Continuar com Google"}
               </Button>
+
+              <div className="flex items-center justify-center gap-3 pt-1 text-xs">
+                <a
+                  href={SUPPORT_HREF}
+                  className="inline-flex items-center gap-1 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  <LifeBuoy className="h-3.5 w-3.5" /> Falar com suporte
+                </a>
+                <span className="text-muted-foreground/50" aria-hidden>•</span>
+                <a
+                  href="/status"
+                  className="inline-flex items-center gap-1 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Ver status do app
+                </a>
+              </div>
+
               <p className="text-center text-sm text-muted-foreground">Cadastro público desativado para operação pessoal segura.</p>
               <p className="text-center text-xs text-muted-foreground">
                 O acesso por senha foi removido e o login agora acontece somente pelo Google autorizado.
