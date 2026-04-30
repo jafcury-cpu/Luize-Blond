@@ -1,9 +1,9 @@
 import { t } from "@/lib/i18n";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Badge } from "@/components/ui/badge";
 import { LuizeSidebar } from "@/components/luize/luize-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SessionStatusBadge } from "@/components/auth/session-status-badge";
 
 const labels: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": { title: "Dashboard", subtitle: "Resumo executivo do dia" },
@@ -39,9 +39,7 @@ export function LuizeAppLayout() {
                 <p className="text-sm text-muted-foreground">{current.subtitle}</p>
                 <p className="truncate text-xs text-foreground/80">{user?.email}</p>
               </div>
-              <Badge variant="info" className="hidden md:inline-flex">
-                Sessão ativa
-              </Badge>
+              <SessionStatusBadge />
             </div>
           </header>
           <main className="flex-1 px-4 py-4 md:px-6 md:py-6">
