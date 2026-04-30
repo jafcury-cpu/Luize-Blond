@@ -69,6 +69,18 @@ const Configuracoes = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toastSeverity, setToastSeverity] = useState<RealtimeToastSeverity>(() => getRealtimeToastSeverity());
+  const [debugMode, setDebugMode] = useState<boolean>(() => isDebugModeEnabled());
+
+  // Sync debug mode toggle across tabs
+  useEffect(() => {
+    const sync = () => setDebugMode(isDebugModeEnabled());
+    window.addEventListener(DEBUG_MODE_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(DEBUG_MODE_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   // Cross-tab + same-tab sync: keep the select in sync if the preference changes elsewhere
   useEffect(() => {
