@@ -52,6 +52,14 @@ import {
 } from "@/lib/chat-preferences";
 import { fetchRealtimeToastSeverityFromCloud } from "@/lib/realtime-toast-severity-cloud";
 import { formatDateTime } from "@/lib/luize-mocks";
+import {
+  clearWebhookCallLog,
+  getWebhookCallLog,
+  recordWebhookCall,
+  WEBHOOK_LOG_CHANGED_EVENT,
+  type WebhookCallEntry,
+} from "@/lib/webhook-call-log";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const PAGE_SIZE = 200;
 
@@ -744,24 +752,58 @@ const Chat = () => {
   const checkWebhook = useCallback(async () => {
     setStatus("checking");
     setStatusDetail(null);
+    const startedAt = performance.now();
+    const requestBody = { mode: "ping" as const };
     try {
       const { data, error } = await supabase.functions.invoke("chat-webhook", {
-        body: { mode: "ping" },
+        body: requestBody,
       });
+      const duration = Math.round(performance.now() - startedAt);
       if (error) {
         setStatus("offline");
         setStatusDetail(getFriendlyWebhookError(error));
         setLatencyMs(null);
+        recordWebhookCall({
+          at: Date.now(),
+          mode: "ping",
+          durationMs: duration,
+          status: "error",
+          httpStatus: (error as { context?: { status?: number } })?.context?.status ?? null,
+          errorMessage: error.message,
+          request: requestBody,
+          response: data ?? null,
+        });
         return;
       }
       const next = (data?.status as WebhookStatus | undefined) ?? "offline";
       setStatus(next);
       setStatusDetail(typeof data?.message === "string" ? data.message : null);
       setLatencyMs(typeof data?.latencyMs === "number" ? data.latencyMs : null);
+      recordWebhookCall({
+        at: Date.now(),
+        mode: "ping",
+        durationMs: duration,
+        status: "success",
+        httpStatus: 200,
+        errorMessage: null,
+        request: requestBody,
+        response: data ?? null,
+      });
     } catch (error) {
+      const duration = Math.round(performance.now() - startedAt);
       setStatus("offline");
       setStatusDetail(getFriendlyWebhookError(error));
       setLatencyMs(null);
+      recordWebhookCall({
+        at: Date.now(),
+        mode: "ping",
+        durationMs: duration,
+        status: "error",
+        httpStatus: null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        request: requestBody,
+        response: null,
+      });
     } finally {
       setLastCheckedAt(new Date());
     }
