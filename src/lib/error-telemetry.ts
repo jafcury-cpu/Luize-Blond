@@ -24,6 +24,12 @@ function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** Short, human-friendly error ID (e.g. "ERR-K3F7-92AB"). Easy to read aloud or paste. */
+export function generateErrorId(): string {
+  const part = () => Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4).padEnd(4, "X");
+  return `ERR-${part()}-${part()}`;
+}
+
 function getCurrentRoute(): string {
   if (typeof window === "undefined") return "";
   return window.location.pathname + window.location.search;
@@ -58,7 +64,7 @@ export function clearLocalRecentErrors() {
   window.dispatchEvent(new CustomEvent("luize:error-logged"));
 }
 
-export async function logError(input: ErrorLogInput): Promise<void> {
+export async function logError(input: ErrorLogInput): Promise<string> {
   const requestId = input.requestId ?? generateRequestId();
   const route = input.route ?? getCurrentRoute();
   const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : null;
@@ -80,7 +86,7 @@ export async function logError(input: ErrorLogInput): Promise<void> {
   try {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id;
-    if (!userId) return;
+    if (!userId) return requestId;
 
     await supabase.from("error_logs").insert({
       user_id: userId,
@@ -96,20 +102,41 @@ export async function logError(input: ErrorLogInput): Promise<void> {
   } catch {
     /* swallow — never throw from telemetry */
   }
+  return requestId;
 }
 
 export function initErrorTelemetry() {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
 
+  const showRuntimeToast = (errorId: string, message: string) => {
+    // Lazy import sonner to avoid breaking initial bundle order
+    void import("sonner").then(({ toast }) => {
+      toast.error(`Erro de runtime · ${errorId}`, {
+        description: message.slice(0, 200),
+        duration: 8000,
+        action: {
+          label: "Copiar ID",
+          onClick: () => {
+            void navigator.clipboard?.writeText(errorId);
+          },
+        },
+      });
+    }).catch(() => {/* ignore */});
+  };
+
   window.addEventListener("error", (event) => {
     const err = event.error as Error | undefined;
+    const errorId = generateErrorId();
+    const message = err?.message || event.message || "Unknown error";
     void logError({
-      message: err?.message || event.message || "Unknown error",
+      message: `${errorId} · ${message}`,
       stack: err?.stack ?? null,
       source: "window.error",
       severity: "error",
+      requestId: errorId,
       context: {
+        errorId,
         filename: event.filename,
         lineno: event.lineno,
         colno: event.colno,
@@ -117,10 +144,11 @@ export function initErrorTelemetry() {
     });
     pushDebug({
       level: "error",
-      source: "window.error",
-      message: err?.message || event.message || "Unknown error",
-      details: { stack: err?.stack, filename: event.filename, lineno: event.lineno },
+      source: `window.error · ${errorId}`,
+      message,
+      details: { errorId, stack: err?.stack, filename: event.filename, lineno: event.lineno },
     });
+    showRuntimeToast(errorId, message);
   });
 
   window.addEventListener("unhandledrejection", (event) => {
@@ -132,18 +160,22 @@ export function initErrorTelemetry() {
           ? reason
           : JSON.stringify(reason);
     const stack = reason instanceof Error ? reason.stack : null;
+    const errorId = generateErrorId();
     void logError({
-      message: message || "Unhandled promise rejection",
+      message: `${errorId} · ${message || "Unhandled promise rejection"}`,
       stack,
       source: "unhandledrejection",
       severity: "error",
+      requestId: errorId,
+      context: { errorId },
     });
     pushDebug({
       level: "error",
-      source: "unhandledrejection",
+      source: `unhandledrejection · ${errorId}`,
       message: message || "Unhandled promise rejection",
-      details: { stack },
+      details: { errorId, stack },
     });
+    showRuntimeToast(errorId, message || "Unhandled promise rejection");
   });
 
   // Patch fetch to capture failed Supabase HTTP calls (RLS, validation, 4xx/5xx)
