@@ -122,8 +122,26 @@ const Login = () => {
         context: { code: info.code, raw: info.raw, origin },
       });
     } finally {
+      clearStuckTimer();
       setSubmitting(false);
     }
+  };
+
+  const handleCancelStuck = () => {
+    clearStuckTimer();
+    setSubmitting(false);
+    setStuck(false);
+    sonnerToast.info("Tentativa cancelada. Você pode tentar de novo.");
+  };
+
+  const handleHardReset = () => {
+    clearStuckTimer();
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+    window.location.href = "/login";
   };
 
   const copyTechnical = async () => {
