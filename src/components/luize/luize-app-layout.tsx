@@ -40,6 +40,7 @@ export function LuizeAppLayout() {
                 <p className="text-sm text-muted-foreground">{current.subtitle}</p>
                 <p className="truncate text-xs text-foreground/80">{user?.email}</p>
               </div>
+              <ReportProblemButton />
               <SessionStatusBadge />
             </div>
           </header>
