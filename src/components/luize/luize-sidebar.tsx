@@ -1,5 +1,6 @@
 import { t } from "@/lib/i18n";
 import {
+  AlertTriangle,
   Bell,
   BookUser,
   ChevronRight,
@@ -41,6 +42,7 @@ const navigation = [
   { title: "Documentos", href: "/documentos", icon: FileText },
   { title: "Contatos", href: "/contatos", icon: BookUser },
   { title: "Comunicações", href: "/comunicacoes", icon: MessageCircle },
+  { title: "Erros", href: "/erros", icon: AlertTriangle },
   { title: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 

@@ -21,6 +21,7 @@ const Documentos = lazy(() => import("./pages/Documentos.tsx"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes.tsx"));
 const Contatos = lazy(() => import("./pages/Contatos.tsx"));
 const Comunicacoes = lazy(() => import("./pages/Comunicacoes.tsx"));
+const Erros = lazy(() => import("./pages/Erros.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const I18nPreview = lazy(() => import("./pages/I18nPreview.tsx"));
 
@@ -65,6 +66,7 @@ const App = () => (
                   <Route path="/contatos" element={<Contatos />} />
                   <Route path="/comunicacoes" element={<Comunicacoes />} />
                   <Route path="/configuracoes" element={<Configuracoes />} />
+                  <Route path="/erros" element={<Erros />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
