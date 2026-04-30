@@ -102,6 +102,7 @@ export async function logError(input: ErrorLogInput): Promise<string> {
   } catch {
     /* swallow — never throw from telemetry */
   }
+  return requestId;
 }
 
 export function initErrorTelemetry() {
