@@ -22,7 +22,9 @@ const Login = () => {
   const location = useLocation();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [stuck, setStuck] = useState(false);
   const [error, setError] = useState<OAuthErrorInfo | null>(null);
+  const stuckTimerRef = useRef<number | null>(null);
   const redirectTo = typeof location.state?.from === "string" ? location.state.from : "/dashboard";
 
   // Detect OAuth callback errors on mount (e.g., redirected back with ?error=...)
