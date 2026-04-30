@@ -103,4 +103,21 @@ export function initActionTrail() {
 
   // Capture initial route
   recordAction({ kind: "navigation", label: window.location.pathname, route: window.location.pathname });
+
+  // Patch history to capture SPA navigations
+  const patch = (method: "pushState" | "replaceState") => {
+    const orig = history[method];
+    history[method] = function (...args: Parameters<typeof orig>) {
+      const result = orig.apply(this, args);
+      const route = window.location.pathname;
+      recordAction({ kind: "navigation", label: route, route });
+      return result;
+    } as typeof orig;
+  };
+  patch("pushState");
+  patch("replaceState");
+  window.addEventListener("popstate", () => {
+    const route = window.location.pathname;
+    recordAction({ kind: "navigation", label: route, route });
+  });
 }
