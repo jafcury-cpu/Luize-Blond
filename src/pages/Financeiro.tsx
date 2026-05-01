@@ -82,14 +82,28 @@ type ReconciliationRow = {
   note: string | null;
 };
 
-type TimelineItem = { day: string; title: string; amount: string; meta: string };
+type TimelineItem = { day: string; title: string; amount: string; meta: string; sortKey: number };
 
-const defaultTimeline: TimelineItem[] = [
-  { day: "Hoje", title: "Fatura C6 Black", amount: "R$ 1.140", meta: "vence em 3 dias" },
-  { day: "Amanhã", title: "Boleto condomínio", amount: "R$ 780", meta: "agendado no Itaú" },
-  { day: "Sex", title: "Conciliação Bradesco", amount: "12 lançamentos", meta: "2 divergências" },
-  { day: "Seg", title: "Fechamento Visa Itaú", amount: "R$ 2.040", meta: "limite usado 64%" },
-];
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function dayLabel(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Amanhã";
+  if (diff > 1 && diff < 7) return WEEKDAY_LABELS[target.getDay()];
+  return target.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+function nextOccurrence(dayOfMonth: number): Date {
+  const today = new Date();
+  const candidate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+  if (candidate < today) candidate.setMonth(candidate.getMonth() + 1);
+  return candidate;
+}
 
 const defaultBankAccounts: BankAccount[] = [
   { id: "1", bank_name: "Itaú", account_type: "corrente", description: "Conta principal da casa", balance: 0, reconciliation_pct: 92, reconciliation_note: "OFX e conciliação automática preparados" },
