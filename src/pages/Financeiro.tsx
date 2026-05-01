@@ -361,6 +361,70 @@ const Financeiro = () => {
     return items.sort((a, b) => a.sortKey - b.sortKey).slice(0, 6);
   }, [financeData.upcomingBills, creditCards]);
 
+  // Agregação por instituição: contas + cartões + conciliação por banco
+  const bankDashboards = useMemo(() => {
+    const normalize = (name: string): string => {
+      const n = name.toLowerCase().trim();
+      if (n.includes("itau") || n.includes("itaú")) return "Itaú";
+      if (n.includes("bradesco")) return "Bradesco";
+      if (n.includes("c6")) return "C6";
+      if (n.includes("santander")) return "Santander";
+      if (n.includes("nubank") || n.includes("nu bank") || n === "nu") return "Nubank";
+      if (n.includes("inter")) return "Inter";
+      if (n.includes("xp")) return "XP";
+      if (n.includes("btg")) return "BTG";
+      return name.trim();
+    };
+
+    type Dash = {
+      bank: string;
+      accounts: BankAccount[];
+      cards: CreditCardRow[];
+      totalBalance: number;
+      totalLimit: number;
+      totalUsed: number;
+      usagePct: number;
+      reconciliationPct: number | null;
+      reconciliationPhase: string | null;
+      reconciliationNote: string | null;
+    };
+
+    const map = new Map<string, Dash>();
+    const ensure = (raw: string): Dash => {
+      const key = normalize(raw);
+      let d = map.get(key);
+      if (!d) {
+        d = { bank: key, accounts: [], cards: [], totalBalance: 0, totalLimit: 0, totalUsed: 0, usagePct: 0, reconciliationPct: null, reconciliationPhase: null, reconciliationNote: null };
+        map.set(key, d);
+      }
+      return d;
+    };
+
+    bankAccounts.forEach((acc) => {
+      const d = ensure(acc.bank_name);
+      d.accounts.push(acc);
+      d.totalBalance += Number(acc.balance) || 0;
+    });
+    creditCards.forEach((card) => {
+      const d = ensure(card.card_name);
+      d.cards.push(card);
+      d.totalLimit += Number(card.credit_limit) || 0;
+      d.totalUsed += Number(card.used_amount) || 0;
+    });
+    reconciliation.forEach((row) => {
+      const d = ensure(row.institution);
+      d.reconciliationPct = row.progress_pct;
+      d.reconciliationPhase = row.current_phase;
+      d.reconciliationNote = row.note;
+    });
+
+    map.forEach((d) => {
+      d.usagePct = d.totalLimit > 0 ? Math.round((d.totalUsed / d.totalLimit) * 100) : 0;
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.totalBalance - a.totalBalance);
+  }, [bankAccounts, creditCards, reconciliation]);
+
   if (loading) {
     return (
       <div className="grid gap-4 xl:grid-cols-2">
