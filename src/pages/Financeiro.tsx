@@ -323,6 +323,44 @@ const Financeiro = () => {
     [reconciliation],
   );
 
+  const timeline: TimelineItem[] = useMemo(() => {
+    const items: TimelineItem[] = [];
+    // Próximas contas (boletos/faturas) dos próximos 14 dias
+    const horizon = Date.now() + 14 * 86_400_000;
+    financeData.upcomingBills.forEach((bill) => {
+      const due = new Date(bill.dueDate);
+      if (due.getTime() > horizon) return;
+      items.push({
+        day: dayLabel(due),
+        title: bill.description,
+        amount: formatCurrency(bill.amount),
+        meta: bill.status === "atrasado" ? "em atraso" : `vence ${formatDate(bill.dueDate)}`,
+        sortKey: due.getTime(),
+      });
+    });
+    // Próximos fechamentos e vencimentos de cartões
+    creditCards.forEach((card) => {
+      const close = nextOccurrence(card.closing_day);
+      const due = nextOccurrence(card.due_day);
+      const usedPct = card.credit_limit > 0 ? Math.round((card.used_amount / card.credit_limit) * 100) : 0;
+      items.push({
+        day: dayLabel(close),
+        title: `Fechamento ${card.card_name}`,
+        amount: formatCurrency(card.used_amount),
+        meta: `limite usado ${usedPct}%`,
+        sortKey: close.getTime(),
+      });
+      items.push({
+        day: dayLabel(due),
+        title: `Fatura ${card.card_name}`,
+        amount: formatCurrency(card.used_amount),
+        meta: `vence dia ${String(card.due_day).padStart(2, "0")}`,
+        sortKey: due.getTime(),
+      });
+    });
+    return items.sort((a, b) => a.sortKey - b.sortKey).slice(0, 6);
+  }, [financeData.upcomingBills, creditCards]);
+
   if (loading) {
     return (
       <div className="grid gap-4 xl:grid-cols-2">
