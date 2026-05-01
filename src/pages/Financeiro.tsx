@@ -19,6 +19,7 @@ import { getFallbackFinanceData, getFinanceData, type FinanceData } from "@/lib/
 import { BankAccountFormDialog } from "@/components/luize/bank-account-form-dialog";
 import { CreditCardFormDialog } from "@/components/luize/credit-card-form-dialog";
 import { ReconciliationFormDialog } from "@/components/luize/reconciliation-form-dialog";
+import { UpcomingBillsTimeline } from "@/components/luize/upcoming-bills-timeline";
 import {
   formatCurrency,
   formatDate,
