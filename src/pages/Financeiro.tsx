@@ -35,6 +35,7 @@ import {
   ReceiptText,
   ScanSearch,
   Save,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 
@@ -81,14 +82,28 @@ type ReconciliationRow = {
   note: string | null;
 };
 
-type TimelineItem = { day: string; title: string; amount: string; meta: string };
+type TimelineItem = { day: string; title: string; amount: string; meta: string; sortKey: number };
 
-const defaultTimeline: TimelineItem[] = [
-  { day: "Hoje", title: "Fatura C6 Black", amount: "R$ 1.140", meta: "vence em 3 dias" },
-  { day: "Amanhã", title: "Boleto condomínio", amount: "R$ 780", meta: "agendado no Itaú" },
-  { day: "Sex", title: "Conciliação Bradesco", amount: "12 lançamentos", meta: "2 divergências" },
-  { day: "Seg", title: "Fechamento Visa Itaú", amount: "R$ 2.040", meta: "limite usado 64%" },
-];
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function dayLabel(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Amanhã";
+  if (diff > 1 && diff < 7) return WEEKDAY_LABELS[target.getDay()];
+  return target.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+function nextOccurrence(dayOfMonth: number): Date {
+  const today = new Date();
+  const candidate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+  if (candidate < today) candidate.setMonth(candidate.getMonth() + 1);
+  return candidate;
+}
 
 const defaultBankAccounts: BankAccount[] = [
   { id: "1", bank_name: "Itaú", account_type: "corrente", description: "Conta principal da casa", balance: 0, reconciliation_pct: 92, reconciliation_note: "OFX e conciliação automática preparados" },
@@ -308,6 +323,44 @@ const Financeiro = () => {
     [reconciliation],
   );
 
+  const timeline: TimelineItem[] = useMemo(() => {
+    const items: TimelineItem[] = [];
+    // Próximas contas (boletos/faturas) dos próximos 14 dias
+    const horizon = Date.now() + 14 * 86_400_000;
+    financeData.upcomingBills.forEach((bill) => {
+      const due = new Date(bill.dueDate);
+      if (due.getTime() > horizon) return;
+      items.push({
+        day: dayLabel(due),
+        title: bill.description,
+        amount: formatCurrency(bill.amount),
+        meta: bill.status === "atrasado" ? "em atraso" : `vence ${formatDate(bill.dueDate)}`,
+        sortKey: due.getTime(),
+      });
+    });
+    // Próximos fechamentos e vencimentos de cartões
+    creditCards.forEach((card) => {
+      const close = nextOccurrence(card.closing_day);
+      const due = nextOccurrence(card.due_day);
+      const usedPct = card.credit_limit > 0 ? Math.round((card.used_amount / card.credit_limit) * 100) : 0;
+      items.push({
+        day: dayLabel(close),
+        title: `Fechamento ${card.card_name}`,
+        amount: formatCurrency(card.used_amount),
+        meta: `limite usado ${usedPct}%`,
+        sortKey: close.getTime(),
+      });
+      items.push({
+        day: dayLabel(due),
+        title: `Fatura ${card.card_name}`,
+        amount: formatCurrency(card.used_amount),
+        meta: `vence dia ${String(card.due_day).padStart(2, "0")}`,
+        sortKey: due.getTime(),
+      });
+    });
+    return items.sort((a, b) => a.sortKey - b.sortKey).slice(0, 6);
+  }, [financeData.upcomingBills, creditCards]);
+
   if (loading) {
     return (
       <div className="grid gap-4 xl:grid-cols-2">
@@ -320,7 +373,47 @@ const Financeiro = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="finance-theme flex flex-col gap-4">
+      {/* Hero — cockpit financeiro pessoal + família */}
+      <section className="finance-hero">
+        <div className="relative z-10 grid gap-8 lg:grid-cols-[1.25fr_0.9fr] lg:items-end">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Financeiro pessoal + família
+            </div>
+            <h2 className="font-display text-3xl leading-tight md:text-5xl">
+              Despesas, cartões, boletos e conciliação em um só cockpit.
+            </h2>
+            <p className="max-w-2xl text-sm text-white/80 md:text-base">
+              Visão clara das suas contas em Itaú, Bradesco, C6 e onde mais você operar — pronta para evoluir do extrato manual ao Open Finance.
+            </p>
+          </div>
+          <div className="finance-glass relative z-10 p-5 text-foreground">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Prontidão da conciliação</p>
+                <p className="mt-2 font-display text-4xl">{reconciliationCompletion}%</p>
+              </div>
+              <div className="rounded-2xl bg-accent/80 p-3 text-accent-foreground">
+                <Landmark className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              {reconciliation.map((bank) => (
+                <div key={`hero-${bank.id}`} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold">{bank.institution}</span>
+                    <span className="text-muted-foreground">{bank.progress_pct}%</span>
+                  </div>
+                  <Progress value={bank.progress_pct} className="h-2 bg-muted" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Row 1: Summary + Reconciliation */}
       <div className="grid gap-4 xl:grid-cols-12">
         <SectionCard title="Saldo Total" description="Posição consolidada dos últimos 30 dias" eyebrow={t("financeiro.eyebrow.cashPosition")} className="xl:col-span-4">
@@ -404,8 +497,13 @@ const Financeiro = () => {
 
         <SectionCard title="Próximos vencimentos" description="Agenda operacional de pagamentos" eyebrow={t("financeiro.eyebrow.timeline")} className="xl:col-span-4">
           <div className="space-y-3">
-            {defaultTimeline.map((item) => (
-              <div key={`${item.day}-${item.title}`} className="rounded-xl border border-border bg-panel-elevated p-4">
+            {timeline.length === 0 && (
+              <p className="rounded-xl border border-border bg-panel-elevated p-4 text-sm text-muted-foreground">
+                Nenhum vencimento nos próximos 14 dias.
+              </p>
+            )}
+            {timeline.map((item, idx) => (
+              <div key={`${item.day}-${item.title}-${idx}`} className="rounded-xl border border-border bg-panel-elevated p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{item.day}</p>
@@ -606,6 +704,37 @@ const Financeiro = () => {
             </div>
           </TabsContent>
         </Tabs>
+      </SectionCard>
+
+      {/* Roadmap manual → Open Finance */}
+      <SectionCard
+        title="Estratégia de Conciliação"
+        description="Comece rápido com extrato manual e evolua para Open Finance sem retrabalho"
+        eyebrow="Roadmap"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-panel-elevated p-5">
+            <h3 className="font-display text-lg text-foreground">Fase 1 — Manual</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Cole o extrato (OFX, CSV ou texto), Luize extrai e categoriza, você valida e marca divergências antes de fechar o mês.
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Já disponível — use o bloco "Importar Extrato" acima
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-panel-elevated p-5">
+            <h3 className="font-display text-lg text-foreground">Fase 2 — Open Finance</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Conectar Itaú, Bradesco e C6 via Open Finance para atualizar extratos automaticamente e eliminar a importação manual.
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent/30 px-3 py-1 text-xs font-semibold text-accent-foreground">
+              <BadgeAlert className="h-3.5 w-3.5" />
+              {/* TODO: conectar com n8n webhook */}
+              Aguardando integração bancária
+            </div>
+          </div>
+        </div>
       </SectionCard>
     </div>
   );
