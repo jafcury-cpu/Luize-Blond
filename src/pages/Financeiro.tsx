@@ -361,6 +361,70 @@ const Financeiro = () => {
     return items.sort((a, b) => a.sortKey - b.sortKey).slice(0, 6);
   }, [financeData.upcomingBills, creditCards]);
 
+  // Agregação por instituição: contas + cartões + conciliação por banco
+  const bankDashboards = useMemo(() => {
+    const normalize = (name: string): string => {
+      const n = name.toLowerCase().trim();
+      if (n.includes("itau") || n.includes("itaú")) return "Itaú";
+      if (n.includes("bradesco")) return "Bradesco";
+      if (n.includes("c6")) return "C6";
+      if (n.includes("santander")) return "Santander";
+      if (n.includes("nubank") || n.includes("nu bank") || n === "nu") return "Nubank";
+      if (n.includes("inter")) return "Inter";
+      if (n.includes("xp")) return "XP";
+      if (n.includes("btg")) return "BTG";
+      return name.trim();
+    };
+
+    type Dash = {
+      bank: string;
+      accounts: BankAccount[];
+      cards: CreditCardRow[];
+      totalBalance: number;
+      totalLimit: number;
+      totalUsed: number;
+      usagePct: number;
+      reconciliationPct: number | null;
+      reconciliationPhase: string | null;
+      reconciliationNote: string | null;
+    };
+
+    const map = new Map<string, Dash>();
+    const ensure = (raw: string): Dash => {
+      const key = normalize(raw);
+      let d = map.get(key);
+      if (!d) {
+        d = { bank: key, accounts: [], cards: [], totalBalance: 0, totalLimit: 0, totalUsed: 0, usagePct: 0, reconciliationPct: null, reconciliationPhase: null, reconciliationNote: null };
+        map.set(key, d);
+      }
+      return d;
+    };
+
+    bankAccounts.forEach((acc) => {
+      const d = ensure(acc.bank_name);
+      d.accounts.push(acc);
+      d.totalBalance += Number(acc.balance) || 0;
+    });
+    creditCards.forEach((card) => {
+      const d = ensure(card.card_name);
+      d.cards.push(card);
+      d.totalLimit += Number(card.credit_limit) || 0;
+      d.totalUsed += Number(card.used_amount) || 0;
+    });
+    reconciliation.forEach((row) => {
+      const d = ensure(row.institution);
+      d.reconciliationPct = row.progress_pct;
+      d.reconciliationPhase = row.current_phase;
+      d.reconciliationNote = row.note;
+    });
+
+    map.forEach((d) => {
+      d.usagePct = d.totalLimit > 0 ? Math.round((d.totalUsed / d.totalLimit) * 100) : 0;
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.totalBalance - a.totalBalance);
+  }, [bankAccounts, creditCards, reconciliation]);
+
   if (loading) {
     return (
       <div className="grid gap-4 xl:grid-cols-2">
@@ -630,6 +694,88 @@ const Financeiro = () => {
             </div>
           )}
         </div>
+      </SectionCard>
+
+      {/* Row 6.5: Dashboards por Banco */}
+      <SectionCard
+        title="Dashboards por Banco"
+        description="Posição agregada de contas, cartões e conciliação por instituição"
+        eyebrow="Bancos"
+      >
+        {bankDashboards.length === 0 ? (
+          <p className="rounded-2xl border border-border bg-panel-elevated p-5 text-sm text-muted-foreground">
+            Nenhuma instituição cadastrada ainda. Adicione contas ou cartões nas abas abaixo.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {bankDashboards.map((d) => (
+              <div key={d.bank} className="flex flex-col gap-4 rounded-2xl border border-border bg-panel-elevated p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Instituição</p>
+                    <h3 className="mt-1 font-display text-2xl text-foreground">{d.bank}</h3>
+                  </div>
+                  <div className="rounded-2xl bg-primary/15 p-2.5 text-primary">
+                    <Landmark className="h-5 w-5" />
+                  </div>
+                </div>
+
+                {/* Saldo agregado */}
+                <div>
+                  <p className="text-xs text-muted-foreground">Saldo agregado</p>
+                  <p className="mt-1 font-display text-3xl text-foreground">{formatCurrency(d.totalBalance)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {d.accounts.length} {d.accounts.length === 1 ? "conta" : "contas"}
+                    {d.accounts.length > 0 && ` • ${d.accounts.map((a) => a.account_type).join(", ")}`}
+                  </p>
+                </div>
+
+                {/* Cartões */}
+                {d.cards.length > 0 && (
+                  <div className="rounded-xl border border-border bg-panel p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        Cartões ({d.cards.length})
+                      </p>
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="text-sm text-muted-foreground">Limite usado</span>
+                      <span className="font-display text-lg text-foreground">{d.usagePct}%</span>
+                    </div>
+                    <Progress value={d.usagePct} className="mt-1 h-2 bg-muted" />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {formatCurrency(d.totalUsed)} de {formatCurrency(d.totalLimit)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Conciliação */}
+                <div className="rounded-xl border border-border bg-panel p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Conciliação</p>
+                    <ScanSearch className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  {d.reconciliationPct === null ? (
+                    <p className="mt-2 text-sm text-muted-foreground">Sem registro de conciliação</p>
+                  ) : (
+                    <>
+                      <div className="mt-2 flex items-baseline justify-between">
+                        <span className="text-sm text-muted-foreground">Progresso</span>
+                        <span className="font-display text-lg text-foreground">{d.reconciliationPct}%</span>
+                      </div>
+                      <Progress value={d.reconciliationPct} className="mt-1 h-2 bg-muted" />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Fase: {d.reconciliationPhase ?? "manual"}
+                        {d.reconciliationNote ? ` • ${d.reconciliationNote}` : ""}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
 
       {/* Row 7: Tabs — Contas, Cartões, Conciliação */}
