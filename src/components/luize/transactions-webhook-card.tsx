@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Copy,
@@ -11,16 +11,22 @@ import {
   RotateCw,
   ArrowRight,
   Download,
+  Code2,
+  Eraser,
+  Save,
 } from "lucide-react";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/auth/auth-provider";
+
+const CUSTOM_PAYLOAD_STORAGE_KEY = "luize:webhook:custom-payload";
 
 const SAMPLE_PAYLOAD = {
   transactions: [
@@ -138,9 +144,26 @@ type IngestResult = {
 export function TransactionsWebhookCard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [testing, setTesting] = useState<null | "sample" | "tesouro">(null);
+  const [testing, setTesting] = useState<null | "sample" | "tesouro" | "custom">(null);
   const [history, setHistory] = useState<IngestResult[]>([]);
   const [upsertMode, setUpsertMode] = useState(false);
+  const [customPayload, setCustomPayload] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Restaura último payload colado da sessão anterior
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_PAYLOAD_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { payload?: string; savedAt?: string };
+        if (parsed.payload) setCustomPayload(parsed.payload);
+        if (parsed.savedAt) setSavedAt(parsed.savedAt);
+      }
+    } catch {
+      /* ignora corrupção */
+    }
+  }, []);
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
   const endpointUrl = useMemo(
@@ -270,6 +293,103 @@ export function TransactionsWebhookCard() {
     } finally {
       setReplayingId(null);
     }
+  };
+
+  // Normaliza payload colado: aceita array direto ou { transactions: [...] }
+  const parseCustomPayload = (raw: string): { payload: IngestPayload; count: number } => {
+    const trimmed = raw.trim();
+    if (!trimmed) throw new Error("Cole um JSON antes de testar.");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "JSON inválido";
+      throw new Error(`JSON inválido: ${msg}`);
+    }
+    let txs: unknown[];
+    let extras: Record<string, unknown> = {};
+    if (Array.isArray(parsed)) {
+      txs = parsed;
+    } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as { transactions?: unknown }).transactions)) {
+      txs = (parsed as { transactions: unknown[] }).transactions;
+      extras = { ...(parsed as Record<string, unknown>) };
+      delete extras.transactions;
+    } else {
+      throw new Error("O JSON precisa ser um array ou conter a chave 'transactions'.");
+    }
+    if (txs.length === 0) throw new Error("Nenhuma transação no payload.");
+    if (txs.length > 500) throw new Error(`Máximo 500 transações por chamada (recebido: ${txs.length}).`);
+    const payload: IngestPayload = { ...extras, transactions: txs };
+    if (upsertMode) payload.mode = "upsert";
+    return { payload, count: txs.length };
+  };
+
+  const persistCustomPayload = (raw: string) => {
+    try {
+      const at = new Date().toISOString();
+      localStorage.setItem(CUSTOM_PAYLOAD_STORAGE_KEY, JSON.stringify({ payload: raw, savedAt: at }));
+      setSavedAt(at);
+    } catch {
+      /* quota cheia: ignora */
+    }
+  };
+
+  const runCustomTest = async () => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Faça login para testar" });
+      return;
+    }
+    let prepared: { payload: IngestPayload; count: number };
+    try {
+      prepared = parseCustomPayload(customPayload);
+      setCustomError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Payload inválido";
+      setCustomError(msg);
+      toast({ variant: "destructive", title: "Payload inválido", description: msg });
+      return;
+    }
+    persistCustomPayload(customPayload);
+    setTesting("custom");
+    const label = `Payload customizado · ${prepared.count} txs${upsertMode ? " · upsert" : ""}`;
+    try {
+      await sendIngest({ payload: prepared.payload, upsert: upsertMode, label });
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const formatCustomPayload = () => {
+    try {
+      const parsed = JSON.parse(customPayload);
+      const pretty = JSON.stringify(parsed, null, 2);
+      setCustomPayload(pretty);
+      setCustomError(null);
+      toast({ title: "JSON formatado" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "JSON inválido";
+      setCustomError(msg);
+      toast({ variant: "destructive", title: "Não foi possível formatar", description: msg });
+    }
+  };
+
+  const loadSampleIntoEditor = () => {
+    setCustomPayload(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
+    setCustomError(null);
+  };
+
+  const loadTesouroIntoEditor = () => {
+    setCustomPayload(JSON.stringify(buildTesouroBrilhantePayload(), null, 2));
+    setCustomError(null);
+  };
+
+  const clearCustomPayload = () => {
+    setCustomPayload("");
+    setCustomError(null);
+    try {
+      localStorage.removeItem(CUSTOM_PAYLOAD_STORAGE_KEY);
+    } catch { /* noop */ }
+    setSavedAt(null);
   };
 
   const downloadFile = (content: string, filename: string, mime: string) => {
@@ -455,6 +575,54 @@ export function TransactionsWebhookCard() {
           </div>
         </div>
 
+        {/* Editor de payload customizado */}
+        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Code2 className="size-4 text-muted-foreground" />
+              Editor de payload
+              {savedAt && (
+                <Badge variant="outline" className="inline-flex items-center gap-1 text-[10px]">
+                  <Save className="size-3" /> salvo {new Date(savedAt).toLocaleString("pt-BR")}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={loadSampleIntoEditor}>
+                Exemplo
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={loadTesouroIntoEditor}>
+                Tesouro Brilhante
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={formatCustomPayload} disabled={!customPayload.trim()}>
+                Formatar
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={clearCustomPayload} disabled={!customPayload && !savedAt}>
+                <Eraser className="mr-1 size-3" /> Limpar
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            value={customPayload}
+            onChange={(e) => {
+              setCustomPayload(e.target.value);
+              if (customError) setCustomError(null);
+            }}
+            placeholder='Cole um JSON aqui — pode ser um array de transações ou { "transactions": [...] }'
+            className="min-h-[180px] font-mono text-[11px] leading-relaxed"
+            spellCheck={false}
+          />
+          {customError ? (
+            <p className="flex items-start gap-1.5 text-[11px] text-destructive">
+              <AlertCircle className="mt-0.5 size-3 shrink-0" /> {customError}
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              O último payload colado fica salvo neste navegador para reuso. Validamos o JSON antes de enviar e respeitamos o modo upsert acima.
+            </p>
+          )}
+        </div>
+
         {/* Test buttons */}
         <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
           <Button
@@ -473,6 +641,15 @@ export function TransactionsWebhookCard() {
           >
             <Sparkles className="mr-2 size-4" />
             {testing === "tesouro" ? "Enviando..." : "Testar com Tesouro Brilhante"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={runCustomTest}
+            disabled={testing !== null || !user || !customPayload.trim()}
+          >
+            <Code2 className="mr-2 size-4" />
+            {testing === "custom" ? "Enviando..." : "Testar payload colado"}
           </Button>
           <Button type="button" variant="ghost" asChild>
             <Link to="/configuracoes/webhook-logs">
