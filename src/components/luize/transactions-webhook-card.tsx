@@ -294,7 +294,7 @@ export function TransactionsWebhookCard() {
       .eq("user_id", user.id)
       .then(({ data }) => {
         if (cancelled || !data) return;
-        setKnownMappings(new Set(data.map((d) => d.external_category.toLowerCase())));
+        setKnownMappings(new Set(data.map((d) => categoryDedupKey(d.external_category))));
       });
     return () => {
       cancelled = true;
