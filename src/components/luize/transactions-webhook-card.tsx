@@ -117,8 +117,8 @@ type IngestResult = {
 export function TransactionsWebhookCard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<IngestResult | null>(null);
+  const [testing, setTesting] = useState<null | "sample" | "tesouro">(null);
+  const [history, setHistory] = useState<IngestResult[]>([]);
   const [upsertMode, setUpsertMode] = useState(false);
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
@@ -138,38 +138,43 @@ export function TransactionsWebhookCard() {
     }
   };
 
-  const handleTest = async () => {
+  const runTest = async (variant: "sample" | "tesouro") => {
     if (!user) {
       toast({ variant: "destructive", title: "Faça login para testar" });
       return;
     }
-    setTesting(true);
-    setResult(null);
+    setTesting(variant);
+    const basePayload = variant === "tesouro" ? buildTesouroBrilhantePayload() : SAMPLE_PAYLOAD;
+    const payload = upsertMode ? { ...basePayload, mode: "upsert" } : basePayload;
+    const label =
+      variant === "tesouro"
+        ? `Tesouro Brilhante · ${basePayload.transactions.length} txs${upsertMode ? " · upsert" : ""}`
+        : `Payload de exemplo${upsertMode ? " · upsert" : ""}`;
+    const at = new Date().toISOString();
+
     try {
-      const body = upsertMode
-        ? { ...SAMPLE_PAYLOAD, mode: "upsert" }
-        : SAMPLE_PAYLOAD;
-      const { data, error } = await supabase.functions.invoke("ingest-transactions", { body });
+      const { data, error } = await supabase.functions.invoke("ingest-transactions", { body: payload });
       if (error) {
-        setResult({ ok: false, status: 0, body: { error: error.message } });
+        setHistory((h) => [{ ok: false, status: 0, body: { error: error.message }, label, at }, ...h].slice(0, 5));
         toast({ variant: "destructive", title: "Falha no teste", description: error.message });
       } else {
         const inserted = (data as { inserted?: number })?.inserted ?? 0;
         const updated = (data as { updated?: number })?.updated ?? 0;
-        setResult({ ok: true, status: 200, body: data });
+        const skipped = (data as { skipped?: number })?.skipped ?? 0;
+        setHistory((h) => [{ ok: true, status: 200, body: data, label, at }, ...h].slice(0, 5));
         toast({
           title: "Webhook respondeu",
           description: upsertMode
-            ? `Inseridas ${inserted}, atualizadas ${updated}.`
-            : `Inseridas ${inserted} transação(ões) de exemplo.`,
+            ? `Inseridas ${inserted}, atualizadas ${updated}, ignoradas ${skipped}.`
+            : `Inseridas ${inserted}, ignoradas ${skipped}.`,
         });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro desconhecido";
-      setResult({ ok: false, status: 0, body: { error: message } });
+      setHistory((h) => [{ ok: false, status: 0, body: { error: message }, label, at }, ...h].slice(0, 5));
       toast({ variant: "destructive", title: "Falha no teste", description: message });
     } finally {
-      setTesting(false);
+      setTesting(null);
     }
   };
 
@@ -275,38 +280,107 @@ export function TransactionsWebhookCard() {
           </div>
         </div>
 
-        {/* Test button */}
+        {/* Test buttons */}
         <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
-          <Button type="button" onClick={handleTest} disabled={testing || !user}>
+          <Button
+            type="button"
+            onClick={() => runTest("sample")}
+            disabled={testing !== null || !user}
+            variant="outline"
+          >
             <PlayCircle className="mr-2 size-4" />
-            {testing
-              ? "Enviando..."
-              : upsertMode
-                ? "Testar (upsert)"
-                : "Testar com payload de exemplo"}
+            {testing === "sample" ? "Enviando..." : "Testar payload simples"}
           </Button>
-          <Button type="button" variant="outline" asChild>
+          <Button
+            type="button"
+            onClick={() => runTest("tesouro")}
+            disabled={testing !== null || !user}
+          >
+            <Sparkles className="mr-2 size-4" />
+            {testing === "tesouro" ? "Enviando..." : "Testar com Tesouro Brilhante"}
+          </Button>
+          <Button type="button" variant="ghost" asChild>
             <Link to="/configuracoes/webhook-logs">
               <ScrollText className="mr-2 size-4" />
               Ver logs e histórico
             </Link>
           </Button>
-          {result && (
-            <Badge
-              variant={result.ok ? "default" : "destructive"}
-              className="inline-flex items-center gap-1.5"
-            >
-              {result.ok ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
-              {result.ok ? "Sucesso" : "Falhou"}
-            </Badge>
-          )}
         </div>
 
-        {result && (
-          <pre className="max-h-48 overflow-auto rounded-lg border border-border/60 bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">
-            {JSON.stringify(result.body, null, 2)}
-          </pre>
+        {/* Histórico das execuções */}
+        {history.length > 0 && (
+          <div className="space-y-2 border-t border-border/60 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <History className="size-4 text-muted-foreground" />
+                Histórico desta sessão
+                <Badge variant="secondary" className="text-[10px]">{history.length}/5</Badge>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setHistory([])}>
+                Limpar
+              </Button>
+            </div>
+            <ul className="space-y-2">
+              {history.map((entry) => {
+                const body = entry.body as
+                  | {
+                      inserted?: number;
+                      updated?: number;
+                      skipped?: number;
+                      rejected?: number;
+                      unmapped_categories?: string[];
+                    }
+                  | undefined;
+                const inserted = body?.inserted ?? 0;
+                const updated = body?.updated ?? 0;
+                const skipped = body?.skipped ?? 0;
+                const rejected = body?.rejected ?? 0;
+                const unmapped = body?.unmapped_categories ?? [];
+                return (
+                  <li key={entry.at} className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={entry.ok ? "default" : "destructive"}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          {entry.ok ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
+                          {entry.ok ? "Sucesso" : "Falhou"}
+                        </Badge>
+                        <span className="font-medium text-foreground">{entry.label}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {new Date(entry.at).toLocaleTimeString("pt-BR")}
+                      </span>
+                    </div>
+                    {entry.ok && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge variant="secondary" className="text-[10px]">Inseridas: {inserted}</Badge>
+                        {updated > 0 && (
+                          <Badge variant="secondary" className="text-[10px]">Atualizadas: {updated}</Badge>
+                        )}
+                        <Badge variant="secondary" className="text-[10px]">Ignoradas: {skipped}</Badge>
+                        {rejected > 0 && (
+                          <Badge variant="destructive" className="text-[10px]">Rejeitadas: {rejected}</Badge>
+                        )}
+                        {unmapped.length > 0 && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Sem mapeamento: {unmapped.slice(0, 3).join(", ")}
+                            {unmapped.length > 3 ? ` +${unmapped.length - 3}` : ""}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    <pre className="mt-2 max-h-32 overflow-auto rounded border border-border/40 bg-background/40 p-2 font-mono text-[10px] leading-relaxed">
+                      {JSON.stringify(entry.body, null, 2)}
+                    </pre>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
+
 
         <p className="text-xs text-muted-foreground">
           As transações importadas aparecem em <strong>Financeiro</strong> e contam para o cockpit. Reenviar com o mesmo{" "}
