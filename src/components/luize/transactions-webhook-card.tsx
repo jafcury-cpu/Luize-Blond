@@ -1385,6 +1385,83 @@ export function TransactionsWebhookCard() {
           As transações importadas aparecem em <strong>Financeiro</strong> e contam para o cockpit. Reenviar com o mesmo{" "}
           <code className="rounded bg-muted px-1">external_id</code> é seguro — não duplica.
         </p>
+
+        <AlertDialog
+          open={bulkConfirm !== null}
+          onOpenChange={(open) => {
+            if (!open && !bulkSaving) setBulkConfirm(null);
+          }}
+        >
+          <AlertDialogContent className="max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar mapeamentos em lote</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                {bulkConfirm ? (() => {
+                  const total = bulkConfirm.length;
+                  const byCategory = bulkConfirm.reduce<Record<string, number>>((acc, it) => {
+                    acc[it.internal] = (acc[it.internal] ?? 0) + 1;
+                    return acc;
+                  }, {});
+                  const grouped = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+                  return (
+                    <div>
+                      <span className="block">
+                        Você está prestes a salvar <strong>{total}</strong> mapeamento{total > 1 ? "s" : ""} de categoria.
+                        Cada nome será classificado para a categoria interna escolhida e usado em todas as próximas importações.
+                      </span>
+                      <span className="mt-3 block text-xs text-muted-foreground">
+                        Resumo por categoria interna:
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1.5">
+                        {grouped.map(([cat, count]) => (
+                          <Badge key={cat} variant="secondary" className="font-mono text-[11px]">
+                            {cat} · {count}
+                          </Badge>
+                        ))}
+                      </span>
+                    </div>
+                  );
+                })() : <span />}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {bulkConfirm && (
+              <div className="max-h-56 overflow-y-auto rounded border border-border/40 bg-muted/20 p-2">
+                <ul className="space-y-1 text-xs">
+                  {bulkConfirm.map((it) => (
+                    <li
+                      key={categoryDedupKey(it.external)}
+                      className="flex items-center gap-2 font-mono"
+                    >
+                      <span className="truncate text-foreground" title={it.external}>
+                        {it.external}
+                      </span>
+                      <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                      <span className="ml-auto shrink-0 text-amber-400">{it.internal}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={bulkSaving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={bulkSaving}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!bulkConfirm) return;
+                  const items = bulkConfirm;
+                  await saveMappingsBulk(items);
+                  setBulkConfirm(null);
+                }}
+              >
+                <Save className="mr-1 size-3" />
+                {bulkSaving ? "Salvando..." : `Confirmar e salvar${bulkConfirm ? ` (${bulkConfirm.length})` : ""}`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </SectionCard>
   );
