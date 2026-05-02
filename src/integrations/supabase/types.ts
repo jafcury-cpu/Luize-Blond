@@ -119,6 +119,33 @@ export type Database = {
         }
         Relationships: []
       }
+      category_mappings: {
+        Row: {
+          created_at: string
+          external_category: string
+          id: string
+          internal_category: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_category: string
+          id?: string
+          internal_category: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          external_category?: string
+          id?: string
+          internal_category?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       communication_messages: {
         Row: {
           channel: string
