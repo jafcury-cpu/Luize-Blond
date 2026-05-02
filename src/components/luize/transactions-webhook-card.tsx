@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, PlayCircle, CheckCircle2, AlertCircle, ScrollText, Sparkles, History } from "lucide-react";
+import {
+  Copy,
+  PlayCircle,
+  CheckCircle2,
+  AlertCircle,
+  ScrollText,
+  Sparkles,
+  History,
+  RotateCw,
+  ArrowRight,
+} from "lucide-react";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
