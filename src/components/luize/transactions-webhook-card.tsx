@@ -642,6 +642,15 @@ export function TransactionsWebhookCard() {
             <Sparkles className="mr-2 size-4" />
             {testing === "tesouro" ? "Enviando..." : "Testar com Tesouro Brilhante"}
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={runCustomTest}
+            disabled={testing !== null || !user || !customPayload.trim()}
+          >
+            <Code2 className="mr-2 size-4" />
+            {testing === "custom" ? "Enviando..." : "Testar payload colado"}
+          </Button>
           <Button type="button" variant="ghost" asChild>
             <Link to="/configuracoes/webhook-logs">
               <ScrollText className="mr-2 size-4" />
