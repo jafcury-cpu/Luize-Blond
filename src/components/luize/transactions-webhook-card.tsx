@@ -1060,7 +1060,41 @@ export function TransactionsWebhookCard() {
         )}
 
         {/* Resumo de categorias sem mapeamento + ações rápidas */}
-        {unmappedSummary.length > 0 && (
+        {unmappedSummary.length > 0 && (() => {
+          const pendingItems = unmappedSummary.filter((it) => !justMapped[it.external.toLowerCase()]);
+          const allSelected = pendingItems.length > 0 && pendingItems.every((it) => selectedKeys.has(it.external.toLowerCase()));
+          const selectedCount = selectedKeys.size;
+          const getCategory = (item: typeof unmappedSummary[number]) =>
+            overrides[item.external.toLowerCase()] ?? item.suggested;
+          const toggleSelect = (key: string) => {
+            setSelectedKeys((s) => {
+              const next = new Set(s);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            });
+          };
+          const toggleSelectAll = () => {
+            if (allSelected) {
+              setSelectedKeys(new Set());
+            } else {
+              setSelectedKeys(new Set(pendingItems.map((it) => it.external.toLowerCase())));
+            }
+          };
+          const setAllSelectedTo = (cat: InternalCategory) => {
+            setOverrides((o) => {
+              const next = { ...o };
+              for (const k of selectedKeys) next[k] = cat;
+              return next;
+            });
+          };
+          const handleBulkSave = () => {
+            const items = pendingItems
+              .filter((it) => selectedKeys.has(it.external.toLowerCase()))
+              .map((it) => ({ external: it.external, internal: getCategory(it) }));
+            void saveMappingsBulk(items);
+          };
+          return (
           <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1068,26 +1102,120 @@ export function TransactionsWebhookCard() {
                 Categorias sem mapeamento
                 <Badge variant="outline" className="text-[10px]">{unmappedSummary.length}</Badge>
               </div>
-              <Button type="button" variant="ghost" size="sm" asChild className="h-7 px-2 text-[11px]">
-                <a href="#mapeamentos">
-                  <Tags className="mr-1 size-3" /> Abrir mapeamentos
-                  <ExternalLink className="ml-1 size-3" />
-                </a>
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant={bulkMode ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    setBulkMode((b) => !b);
+                    setSelectedKeys(new Set());
+                  }}
+                >
+                  <Layers className="mr-1 size-3" />
+                  {bulkMode ? "Sair da seleção" : "Selecionar vários"}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" asChild className="h-7 px-2 text-[11px]">
+                  <a href="#mapeamentos">
+                    <Tags className="mr-1 size-3" /> Abrir mapeamentos
+                    <ExternalLink className="ml-1 size-3" />
+                  </a>
+                </Button>
+              </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
               Sugerimos uma categoria interna com base no nome. Ajuste se quiser e salve — o mapeamento vale para todas as próximas importações.
+              {bulkMode && " Marque várias linhas para salvar todas de uma vez."}
             </p>
+
+            {bulkMode && pendingItems.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="inline-flex items-center gap-1.5 text-foreground hover:underline"
+                >
+                  <Checkbox checked={allSelected} className="pointer-events-none" />
+                  {allSelected ? "Desmarcar todas" : `Selecionar todas (${pendingItems.length})`}
+                </button>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  {selectedCount} selecionada{selectedCount === 1 ? "" : "s"}
+                </span>
+                {selectedCount > 0 && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <label className="inline-flex items-center gap-1 text-muted-foreground">
+                      Aplicar a todas:
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setAllSelectedTo(e.target.value as InternalCategory);
+                            e.target.value = "";
+                          }
+                        }}
+                        className="h-6 rounded border border-border/60 bg-muted/40 px-1 font-mono text-[11px]"
+                      >
+                        <option value="">—</option>
+                        {INTERNAL_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="ml-auto h-7 px-2 text-[11px]"
+                  disabled={selectedCount === 0 || bulkSaving}
+                  onClick={handleBulkSave}
+                >
+                  <Save className="mr-1 size-3" />
+                  {bulkSaving ? "Salvando..." : `Salvar ${selectedCount > 0 ? selectedCount : ""} mapeamento${selectedCount === 1 ? "" : "s"}`.trim()}
+                </Button>
+                {selectedCount > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => setSelectedKeys(new Set())}
+                    disabled={bulkSaving}
+                  >
+                    <XCircle className="mr-1 size-3" /> Limpar
+                  </Button>
+                )}
+              </div>
+            )}
+
             <ul className="space-y-1.5">
               {unmappedSummary.map((item) => {
                 const key = item.external.toLowerCase();
                 const persistedAs = justMapped[key];
                 const isSaving = savingMapping === item.external;
+                const isSelected = selectedKeys.has(key);
+                const currentCat = getCategory(item);
                 return (
                   <li
                     key={key}
-                    className="flex flex-wrap items-center gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5 text-xs"
+                    className={`flex flex-wrap items-center gap-2 rounded border px-2 py-1.5 text-xs ${
+                      isSelected && bulkMode
+                        ? "border-amber-500/60 bg-amber-500/10"
+                        : "border-border/40 bg-background/40"
+                    }`}
                   >
+                    {bulkMode && !persistedAs && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(key)}
+                        disabled={bulkSaving}
+                        aria-label={`Selecionar ${item.external}`}
+                      />
+                    )}
                     <span className="font-mono text-foreground" title={`Apareceu em ${item.occurrences} execução(ões)`}>
                       {item.external}
                     </span>
@@ -1102,26 +1230,29 @@ export function TransactionsWebhookCard() {
                     ) : (
                       <>
                         <select
-                          defaultValue={item.suggested}
-                          onChange={(e) => {
-                            item.suggested = e.target.value as InternalCategory;
-                          }}
+                          value={currentCat}
+                          onChange={(e) =>
+                            setOverrides((o) => ({ ...o, [key]: e.target.value as InternalCategory }))
+                          }
                           className="h-7 rounded border border-border/60 bg-muted/40 px-1.5 font-mono text-[11px]"
+                          disabled={bulkSaving}
                         >
                           {INTERNAL_CATEGORIES.map((c) => (
                             <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="ml-auto h-7 px-2 text-[11px]"
-                          disabled={isSaving || savingMapping !== null}
-                          onClick={() => saveMapping(item.external, item.suggested)}
-                        >
-                          {isSaving ? "Salvando..." : "Salvar mapeamento"}
-                        </Button>
+                        {!bulkMode && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="ml-auto h-7 px-2 text-[11px]"
+                            disabled={isSaving || savingMapping !== null}
+                            onClick={() => saveMapping(item.external, currentCat)}
+                          >
+                            {isSaving ? "Salvando..." : "Salvar mapeamento"}
+                          </Button>
+                        )}
                       </>
                     )}
                   </li>
@@ -1129,7 +1260,9 @@ export function TransactionsWebhookCard() {
               })}
             </ul>
           </div>
-        )}
+          );
+        })()}
+
 
 
         <p className="text-xs text-muted-foreground">
