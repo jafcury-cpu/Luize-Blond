@@ -105,12 +105,22 @@ function buildTesouroBrilhantePayload() {
   };
 }
 
+type IngestPayload = {
+  transactions: unknown[];
+  mode?: "upsert";
+};
+
 type IngestResult = {
   ok: boolean;
   status: number;
   body: unknown;
   label: string;
   at: string;
+  payload: IngestPayload;
+  upsert: boolean;
+  /** id of the previous run this one replays, if any — used to compute diffs */
+  replayOfId?: string;
+  id: string;
 };
 
 
