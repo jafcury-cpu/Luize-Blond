@@ -217,7 +217,51 @@ const suggestInternalCategory = (external: string): InternalCategory => {
   return "Outros";
 };
 
-export function TransactionsWebhookCard() {
+// Limite alinhado com a coluna text do Postgres / boas práticas de UX
+const EXTERNAL_CATEGORY_MAX_LEN = 80;
+
+/**
+ * Normaliza o nome de uma categoria externa antes de persistir.
+ * - trim e colapsa espaços internos
+ * - remove caracteres de controle
+ * - retira pontuação final repetida (ex.: "Uber..." → "Uber")
+ * - aplica Title Case preservando acentos (ex.: "uber eats" → "Uber Eats")
+ * - reduz para no máximo EXTERNAL_CATEGORY_MAX_LEN caracteres
+ * Retorna { value, error } — `value` é null se a entrada for inválida.
+ */
+const normalizeExternalCategory = (raw: string): { value: string | null; error?: string } => {
+  if (typeof raw !== "string") return { value: null, error: "Categoria inválida." };
+  // Remove caracteres de controle e colapsa whitespace
+  let v = raw.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  // Remove pontuação final ruidosa
+  v = v.replace(/[\s.,;:!?\-_/\\|]+$/u, "").trim();
+  if (!v) return { value: null, error: "Categoria não pode ficar vazia." };
+  if (v.length > EXTERNAL_CATEGORY_MAX_LEN) v = v.slice(0, EXTERNAL_CATEGORY_MAX_LEN).trim();
+  // Title Case mantendo acentos; preserva siglas em CAIXA-ALTA curtas (≤3 letras)
+  v = v
+    .split(" ")
+    .map((w) => {
+      if (!w) return w;
+      if (w.length <= 3 && w === w.toUpperCase()) return w;
+      const first = w.charAt(0).toLocaleUpperCase("pt-BR");
+      const rest = w.slice(1).toLocaleLowerCase("pt-BR");
+      return first + rest;
+    })
+    .join(" ");
+  return { value: v };
+};
+
+/**
+ * Chave canônica para deduplicar variações da mesma categoria externa
+ * (case-insensitive, sem acentos, sem pontuação, espaços colapsados).
+ */
+const categoryDedupKey = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   const { user } = useAuth();
   const { toast } = useToast();
   const [testing, setTesting] = useState<null | "sample" | "tesouro" | "custom">(null);
