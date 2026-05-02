@@ -48,6 +48,7 @@ type IngestLog = {
   auth_mode: string;
   status_code: number;
   inserted_count: number;
+  updated_count: number;
   skipped_count: number;
   rejected_count: number;
   total_received: number;
