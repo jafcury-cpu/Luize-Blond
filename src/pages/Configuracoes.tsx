@@ -32,8 +32,9 @@ import {
   DEBUG_MODE_CHANGED_EVENT,
   isDebugModeEnabled,
   pushDebug,
-  setDebugModeEnabled,
+import { setDebugModeEnabled,
 } from "@/lib/debug-mode";
+import { TransactionsWebhookCard } from "@/components/luize/transactions-webhook-card";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
