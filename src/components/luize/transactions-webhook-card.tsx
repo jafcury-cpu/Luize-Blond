@@ -130,6 +130,10 @@ type IngestPayload = {
 type IngestResult = {
   ok: boolean;
   status: number;
+  /** Texto curto descrevendo o status (ex.: "OK", "Bad Request", "Network error") */
+  statusText?: string;
+  /** Latência total em milissegundos medida no cliente */
+  durationMs: number;
   body: unknown;
   label: string;
   at: string;
@@ -138,6 +142,36 @@ type IngestResult = {
   /** id of the previous run this one replays, if any — used to compute diffs */
   replayOfId?: string;
   id: string;
+};
+
+const HTTP_STATUS_TEXT: Record<number, string> = {
+  200: "OK",
+  201: "Created",
+  204: "No Content",
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  409: "Conflict",
+  413: "Payload Too Large",
+  422: "Unprocessable Entity",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+  504: "Gateway Timeout",
+};
+
+const formatDuration = (ms: number) => {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+};
+
+// Heurística para colorir a latência: verde < 500ms, âmbar < 1500ms, vermelho acima
+const latencyTone = (ms: number) => {
+  if (ms < 500) return "text-accent-green";
+  if (ms < 1500) return "text-amber-400";
+  return "text-destructive";
 };
 
 
