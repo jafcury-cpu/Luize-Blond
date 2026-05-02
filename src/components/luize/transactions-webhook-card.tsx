@@ -174,8 +174,42 @@ const latencyTone = (ms: number) => {
   return "text-destructive";
 };
 
+// Mantém em sincronia com category-mappings-card.tsx
+const INTERNAL_CATEGORIES = [
+  "Moradia",
+  "Saúde",
+  "Transporte",
+  "Educação",
+  "Lazer",
+  "Alimentação",
+  "Receitas",
+  "Outros",
+] as const;
+type InternalCategory = (typeof INTERNAL_CATEGORIES)[number];
 
-export function TransactionsWebhookCard() {
+// Palavras-chave para sugerir mapeamento de uma categoria externa do Tesouro Brilhante / n8n
+const SUGGESTION_RULES: Array<{ category: InternalCategory; keywords: string[] }> = [
+  { category: "Alimentação", keywords: ["aliment", "merc", "supermerc", "restaur", "ifood", "lanch", "padaria", "comida", "delivery"] },
+  { category: "Transporte", keywords: ["transp", "uber", "99", "combust", "gasol", "etanol", "estacion", "pedagio", "pedágio", "metro", "ônibus", "onibus", "taxi", "táxi"] },
+  { category: "Moradia", keywords: ["mora", "aluguel", "condom", "iptu", "luz", "energia", "água", "agua", "gas", "internet", "vivo", "claro", "tim", "net", "casa"] },
+  { category: "Saúde", keywords: ["saúd", "saud", "farm", "drogar", "médic", "medic", "hospital", "clinic", "exame", "plano de saude", "academia", "psico"] },
+  { category: "Educação", keywords: ["educa", "escola", "facul", "curso", "livro", "mensalidade escolar", "udemy", "alura"] },
+  { category: "Lazer", keywords: ["lazer", "cinema", "viag", "hotel", "ingresso", "show", "spotify", "netflix", "disney", "prime", "hbo", "stream"] },
+  { category: "Receitas", keywords: ["receit", "salár", "salar", "rendiment", "dividend", "pagto recebido", "transferência recebida", "pix recebido", "freela", "comiss"] },
+];
+
+const suggestInternalCategory = (external: string): InternalCategory => {
+  const norm = external
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  for (const rule of SUGGESTION_RULES) {
+    if (rule.keywords.some((k) => norm.includes(k.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))) {
+      return rule.category;
+    }
+  }
+  return "Outros";
+};
   const { user } = useAuth();
   const { toast } = useToast();
   const [testing, setTesting] = useState<null | "sample" | "tesouro" | "custom">(null);
