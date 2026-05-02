@@ -491,9 +491,31 @@ export function TransactionsWebhookCard() {
                 Histórico desta sessão
                 <Badge variant="secondary" className="text-[10px]">{history.length}/5</Badge>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setHistory([])}>
-                Limpar
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => exportHistory("json")}
+                  title="Baixar histórico desta sessão como JSON"
+                >
+                  <Download className="mr-1 size-3" /> JSON
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => exportHistory("csv")}
+                  title="Baixar histórico desta sessão como CSV"
+                >
+                  <Download className="mr-1 size-3" /> CSV
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setHistory([])}>
+                  Limpar
+                </Button>
+              </div>
             </div>
             <ul className="space-y-2">
               {history.map((entry) => {
