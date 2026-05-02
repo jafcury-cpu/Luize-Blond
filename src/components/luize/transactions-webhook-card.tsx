@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, PlayCircle, CheckCircle2, AlertCircle, ScrollText } from "lucide-react";
+import { Copy, PlayCircle, CheckCircle2, AlertCircle, ScrollText, Sparkles, History } from "lucide-react";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,11 +34,85 @@ const SAMPLE_PAYLOAD = {
   ],
 };
 
+// Payload realista simulando uma sincronização típica do Tesouro Brilhante:
+// despesas recorrentes da casa, cartão, transporte, saúde e a folha mensal.
+function buildTesouroBrilhantePayload() {
+  const today = new Date();
+  const iso = (offsetDays: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().slice(0, 10);
+  };
+  // Sufixo aleatório evita colisão de external_id entre disparos sucessivos do botão
+  const run = Math.random().toString(36).slice(2, 8);
+  return {
+    transactions: [
+      {
+        external_id: `tb-${iso(-3)}-mercado-${run}`,
+        description: "Supermercado Pão de Açúcar — compra da semana",
+        amount: -487.32,
+        date: iso(-3),
+        category: "Alimentação",
+        status: "pago",
+        source: "tesouro-brilhante",
+      },
+      {
+        external_id: `tb-${iso(-2)}-uber-${run}`,
+        description: "Uber — corridas da semana",
+        amount: -86.4,
+        date: iso(-2),
+        category: "Transporte",
+        status: "pago",
+        source: "tesouro-brilhante",
+      },
+      {
+        external_id: `tb-${iso(-1)}-farmacia-${run}`,
+        description: "Drogaria São Paulo",
+        amount: -132.55,
+        date: iso(-1),
+        category: "Saúde",
+        status: "pago",
+        source: "tesouro-brilhante",
+      },
+      {
+        external_id: `tb-${iso(2)}-condominio-${run}`,
+        description: "Condomínio — boleto mensal",
+        amount: -1280,
+        date: iso(2),
+        category: "Moradia",
+        status: "pendente",
+        source: "tesouro-brilhante",
+      },
+      {
+        external_id: `tb-${iso(7)}-fatura-c6-${run}`,
+        description: "Fatura C6 Black",
+        amount: -2147.18,
+        date: iso(7),
+        category: "Outros",
+        status: "agendado",
+        source: "tesouro-brilhante",
+      },
+      {
+        external_id: `tb-${iso(5)}-salario-${run}`,
+        description: "Salário — folha mensal",
+        amount: 12500,
+        date: iso(5),
+        category: "Receitas",
+        status: "pago",
+        source: "tesouro-brilhante",
+      },
+    ],
+  };
+}
+
 type IngestResult = {
   ok: boolean;
   status: number;
   body: unknown;
+  label: string;
+  at: string;
 };
+
 
 export function TransactionsWebhookCard() {
   const { user } = useAuth();
