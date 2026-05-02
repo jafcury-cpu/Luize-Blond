@@ -32,7 +32,7 @@ import {
   DEBUG_MODE_CHANGED_EVENT,
   isDebugModeEnabled,
   pushDebug,
-import { setDebugModeEnabled,
+  setDebugModeEnabled,
 } from "@/lib/debug-mode";
 import { TransactionsWebhookCard } from "@/components/luize/transactions-webhook-card";
 
