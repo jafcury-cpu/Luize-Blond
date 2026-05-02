@@ -503,6 +503,8 @@ export function TransactionsWebhookCard() {
       "label",
       "ok",
       "status",
+      "status_text",
+      "duration_ms",
       "upsert",
       "replay_of_id",
       "tx_count",
