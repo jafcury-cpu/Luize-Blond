@@ -443,6 +443,7 @@ const Configuracoes = () => {
         <div id="mapeamentos" className="scroll-mt-24">
           <CategoryMappingsCard />
         </div>
+      </div>
     </div>
   );
 };
