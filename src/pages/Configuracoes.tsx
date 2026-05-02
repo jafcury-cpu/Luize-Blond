@@ -35,6 +35,7 @@ import {
   setDebugModeEnabled,
 } from "@/lib/debug-mode";
 import { TransactionsWebhookCard } from "@/components/luize/transactions-webhook-card";
+import { CategoryMappingsCard } from "@/components/luize/category-mappings-card";
 
 function validateWebhookUrl(value: string) {
   if (!value.trim()) return null;
