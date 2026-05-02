@@ -210,6 +210,8 @@ const suggestInternalCategory = (external: string): InternalCategory => {
   }
   return "Outros";
 };
+
+export function TransactionsWebhookCard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [testing, setTesting] = useState<null | "sample" | "tesouro" | "custom">(null);
