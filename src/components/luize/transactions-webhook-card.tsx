@@ -232,14 +232,44 @@ export function TransactionsWebhookCard() {
     const { payload, upsert, label, replayOfId } = params;
     const at = new Date().toISOString();
     const id = newId();
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = () => {
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      return Math.max(0, now - startedAt);
+    };
 
     try {
       const { data, error } = await supabase.functions.invoke("ingest-transactions", { body: payload });
+      const durationMs = elapsed();
       if (error) {
+        // FunctionsHttpError expõe o Response real em error.context — extrai status e body reais
+        const ctx = (error as unknown as { context?: Response }).context;
+        let status = 0;
+        let statusText: string | undefined;
+        let body: unknown = { error: error.message };
+        if (ctx && typeof ctx === "object" && "status" in ctx) {
+          status = ctx.status ?? 0;
+          statusText = ctx.statusText || HTTP_STATUS_TEXT[status];
+          try {
+            const cloned = ctx.clone();
+            const text = await cloned.text();
+            try {
+              body = text ? JSON.parse(text) : { error: error.message };
+            } catch {
+              body = { error: error.message, raw: text };
+            }
+          } catch {
+            /* corpo já consumido */
+          }
+        } else {
+          statusText = "Network error";
+        }
         const entry: IngestResult = {
           ok: false,
-          status: 0,
-          body: { error: error.message },
+          status,
+          statusText,
+          durationMs,
+          body,
           label,
           at,
           payload,
@@ -248,7 +278,11 @@ export function TransactionsWebhookCard() {
           id,
         };
         setHistory((h) => [entry, ...h].slice(0, 5));
-        toast({ variant: "destructive", title: "Falha no teste", description: error.message });
+        toast({
+          variant: "destructive",
+          title: `Falha no teste${status ? ` · HTTP ${status}` : ""}`,
+          description: `${error.message} · ${formatDuration(durationMs)}`,
+        });
       } else {
         const inserted = (data as { inserted?: number })?.inserted ?? 0;
         const updated = (data as { updated?: number })?.updated ?? 0;
@@ -256,6 +290,8 @@ export function TransactionsWebhookCard() {
         const entry: IngestResult = {
           ok: true,
           status: 200,
+          statusText: "OK",
+          durationMs,
           body: data,
           label,
           at,
@@ -266,17 +302,20 @@ export function TransactionsWebhookCard() {
         };
         setHistory((h) => [entry, ...h].slice(0, 5));
         toast({
-          title: replayOfId ? "Replay respondeu" : "Webhook respondeu",
+          title: `${replayOfId ? "Replay" : "Webhook"} respondeu · ${formatDuration(durationMs)}`,
           description: upsert
             ? `Inseridas ${inserted}, atualizadas ${updated}, ignoradas ${skipped}.`
             : `Inseridas ${inserted}, ignoradas ${skipped}.`,
         });
       }
     } catch (err) {
+      const durationMs = elapsed();
       const message = err instanceof Error ? err.message : "Erro desconhecido";
       const entry: IngestResult = {
         ok: false,
         status: 0,
+        statusText: "Network error",
+        durationMs,
         body: { error: message },
         label,
         at,
@@ -286,7 +325,11 @@ export function TransactionsWebhookCard() {
         id,
       };
       setHistory((h) => [entry, ...h].slice(0, 5));
-      toast({ variant: "destructive", title: "Falha no teste", description: message });
+      toast({
+        variant: "destructive",
+        title: "Falha no teste",
+        description: `${message} · ${formatDuration(durationMs)}`,
+      });
     }
   };
 
