@@ -356,6 +356,7 @@ serve(async (req) => {
       inserted: inserted?.length ?? 0,
       skipped,
       rejected,
+      unmapped_categories: unmapped,
       ids: inserted?.map((r: { id: string }) => r.id) ?? [],
     },
     200,
