@@ -294,6 +294,8 @@ export function TransactionsWebhookCard() {
   // Overrides controlam a categoria escolhida por linha (usado em ambos os modos)
   const [overrides, setOverrides] = useState<Record<string, InternalCategory>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
+  // Snapshot dos itens prestes a serem salvos no bulk (usado pelo diálogo de confirmação)
+  const [bulkConfirm, setBulkConfirm] = useState<Array<{ external: string; internal: InternalCategory }> | null>(null);
 
   useEffect(() => {
     if (!user) return;
