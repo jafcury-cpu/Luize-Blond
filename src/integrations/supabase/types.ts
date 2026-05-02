@@ -495,6 +495,7 @@ export type Database = {
           source: string
           status_code: number
           total_received: number
+          updated_count: number
           user_id: string
         }
         Insert: {
@@ -511,6 +512,7 @@ export type Database = {
           source?: string
           status_code: number
           total_received?: number
+          updated_count?: number
           user_id: string
         }
         Update: {
@@ -527,6 +529,7 @@ export type Database = {
           source?: string
           status_code?: number
           total_received?: number
+          updated_count?: number
           user_id?: string
         }
         Relationships: []

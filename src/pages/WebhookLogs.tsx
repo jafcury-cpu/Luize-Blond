@@ -48,6 +48,7 @@ type IngestLog = {
   auth_mode: string;
   status_code: number;
   inserted_count: number;
+  updated_count: number;
   skipped_count: number;
   rejected_count: number;
   total_received: number;
@@ -138,12 +139,13 @@ const WebhookLogs = () => {
       (acc, l) => {
         acc.calls += 1;
         acc.inserted += l.inserted_count;
+        acc.updated += l.updated_count ?? 0;
         acc.skipped += l.skipped_count;
         acc.rejected += l.rejected_count;
         if (classifyStatus(l) === "error") acc.errors += 1;
         return acc;
       },
-      { calls: 0, inserted: 0, skipped: 0, rejected: 0, errors: 0 },
+      { calls: 0, inserted: 0, updated: 0, skipped: 0, rejected: 0, errors: 0 },
     );
   }, [logs]);
 
@@ -191,10 +193,11 @@ const WebhookLogs = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-6">
         {[
           { label: "Chamadas", value: stats.calls },
           { label: "Inseridas", value: stats.inserted, tone: "text-success" },
+          { label: "Atualizadas", value: stats.updated, tone: "text-secondary" },
           { label: "Ignoradas (dup)", value: stats.skipped, tone: "text-muted-foreground" },
           { label: "Rejeitadas", value: stats.rejected, tone: "text-warning" },
           { label: "Com erro", value: stats.errors, tone: "text-destructive" },
@@ -248,6 +251,7 @@ const WebhookLogs = () => {
                   <TableHead>Auth</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Inseridas</TableHead>
+                  <TableHead className="text-right">Atual.</TableHead>
                   <TableHead className="text-right">Skip</TableHead>
                   <TableHead className="text-right">Rej.</TableHead>
                   <TableHead className="text-right">Tempo</TableHead>
@@ -268,6 +272,7 @@ const WebhookLogs = () => {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{log.source}</TableCell>
                     <TableCell className="text-right font-mono text-success">{log.inserted_count}</TableCell>
+                    <TableCell className="text-right font-mono text-secondary">{log.updated_count ?? 0}</TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">{log.skipped_count}</TableCell>
                     <TableCell className="text-right font-mono text-warning">{log.rejected_count}</TableCell>
                     <TableCell className="text-right font-mono text-xs text-muted-foreground">
@@ -292,10 +297,14 @@ const WebhookLogs = () => {
           </DialogHeader>
           {selected && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="grid grid-cols-4 gap-3 text-sm">
                 <div className="rounded-lg border border-border bg-panel p-3">
                   <p className="text-xs text-muted-foreground">Inseridas</p>
                   <p className="font-display text-2xl text-success">{selected.inserted_count}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-panel p-3">
+                  <p className="text-xs text-muted-foreground">Atualizadas</p>
+                  <p className="font-display text-2xl text-secondary">{selected.updated_count ?? 0}</p>
                 </div>
                 <div className="rounded-lg border border-border bg-panel p-3">
                   <p className="text-xs text-muted-foreground">Ignoradas</p>

@@ -5,6 +5,8 @@ import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -43,6 +45,7 @@ export function TransactionsWebhookCard() {
   const { toast } = useToast();
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<IngestResult | null>(null);
+  const [upsertMode, setUpsertMode] = useState(false);
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
   const endpointUrl = useMemo(
@@ -69,18 +72,22 @@ export function TransactionsWebhookCard() {
     setTesting(true);
     setResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ingest-transactions", {
-        body: SAMPLE_PAYLOAD,
-      });
+      const body = upsertMode
+        ? { ...SAMPLE_PAYLOAD, mode: "upsert" }
+        : SAMPLE_PAYLOAD;
+      const { data, error } = await supabase.functions.invoke("ingest-transactions", { body });
       if (error) {
         setResult({ ok: false, status: 0, body: { error: error.message } });
         toast({ variant: "destructive", title: "Falha no teste", description: error.message });
       } else {
         const inserted = (data as { inserted?: number })?.inserted ?? 0;
+        const updated = (data as { updated?: number })?.updated ?? 0;
         setResult({ ok: true, status: 200, body: data });
         toast({
           title: "Webhook respondeu",
-          description: `Inseridas ${inserted} transação(ões) de exemplo.`,
+          description: upsertMode
+            ? `Inseridas ${inserted}, atualizadas ${updated}.`
+            : `Inseridas ${inserted} transação(ões) de exemplo.`,
         });
       }
     } catch (err) {
@@ -92,10 +99,12 @@ export function TransactionsWebhookCard() {
     }
   };
 
-  const curlExample = `curl -X POST '${endpointUrl}' \\
+  const curlPayload = upsertMode ? { ...SAMPLE_PAYLOAD, mode: "upsert" } : SAMPLE_PAYLOAD;
+  const curlEndpoint = upsertMode ? `${endpointUrl}?upsert=true` : endpointUrl;
+  const curlExample = `curl -X POST '${curlEndpoint}' \\
   -H 'Authorization: Bearer <SEU_JWT>' \\
   -H 'Content-Type: application/json' \\
-  -d '${JSON.stringify(SAMPLE_PAYLOAD)}'`;
+  -d '${JSON.stringify(curlPayload)}'`;
 
   return (
     <SectionCard
@@ -176,11 +185,31 @@ export function TransactionsWebhookCard() {
           </pre>
         </div>
 
+        {/* Modo upsert */}
+        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+          <Switch id="upsert-mode" checked={upsertMode} onCheckedChange={setUpsertMode} />
+          <div className="space-y-1">
+            <Label htmlFor="upsert-mode" className="cursor-pointer text-sm font-medium">
+              Modo upsert (atualizar existentes)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Quando ligado, transações com <code className="rounded bg-muted px-1">external_id</code> já
+              existente são <strong>atualizadas</strong> em vez de ignoradas. Equivale a enviar{" "}
+              <code className="rounded bg-muted px-1">?upsert=true</code> na URL ou{" "}
+              <code className="rounded bg-muted px-1">{"{ mode: \"upsert\" }"}</code> no body.
+            </p>
+          </div>
+        </div>
+
         {/* Test button */}
         <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
           <Button type="button" onClick={handleTest} disabled={testing || !user}>
             <PlayCircle className="mr-2 size-4" />
-            {testing ? "Enviando..." : "Testar com payload de exemplo"}
+            {testing
+              ? "Enviando..."
+              : upsertMode
+                ? "Testar (upsert)"
+                : "Testar com payload de exemplo"}
           </Button>
           <Button type="button" variant="outline" asChild>
             <Link to="/configuracoes/webhook-logs">
