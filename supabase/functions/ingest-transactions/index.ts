@@ -284,7 +284,7 @@ serve(async (req) => {
   const finish = async (
     body: Record<string, unknown>,
     status: number,
-    counts: { inserted: number; skipped: number; rejected: number; total: number; error: string | null; rejectedDetails: unknown; sourceLabel: string },
+    counts: { inserted: number; updated?: number; skipped: number; rejected: number; total: number; error: string | null; rejectedDetails: unknown; sourceLabel: string },
   ) => {
     await logCall(auditClient, {
       user_id: userId,
@@ -292,6 +292,7 @@ serve(async (req) => {
       auth_mode: authMode,
       status_code: status,
       inserted_count: counts.inserted,
+      updated_count: counts.updated ?? 0,
       skipped_count: counts.skipped,
       rejected_count: counts.rejected,
       total_received: counts.total,
