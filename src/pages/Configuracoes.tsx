@@ -438,6 +438,7 @@ const Configuracoes = () => {
 
       <div className="xl:col-span-2">
         <TransactionsWebhookCard />
+        <CategoryMappingsCard />
       </div>
     </div>
   );
