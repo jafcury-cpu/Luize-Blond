@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy, PlayCircle, Webhook, CheckCircle2, AlertCircle } from "lucide-react";
+import { Copy, PlayCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
