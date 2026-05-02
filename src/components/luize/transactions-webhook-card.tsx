@@ -591,11 +591,25 @@ export function TransactionsWebhookCard() {
       toast({ variant: "destructive", title: "Faça login para mapear" });
       return;
     }
+    const { value: normalized, error: normError } = normalizeExternalCategory(external);
+    if (!normalized) {
+      toast({ variant: "destructive", title: "Categoria inválida", description: normError });
+      return;
+    }
+    const dedupKey = categoryDedupKey(normalized);
+    // Bloqueia se já houver variação equivalente persistida
+    if (knownMappings.has(dedupKey) && !justMapped[dedupKey]) {
+      toast({
+        title: "Já existe um mapeamento equivalente",
+        description: `“${normalized}” parece duplicar uma categoria já mapeada. Edite em Mapeamentos se quiser ajustar.`,
+      });
+      return;
+    }
     setSavingMapping(external);
     const { error } = await supabase
       .from("category_mappings")
       .upsert(
-        { user_id: user.id, external_category: external, internal_category: internal },
+        { user_id: user.id, external_category: normalized, internal_category: internal },
         { onConflict: "user_id,external_category" },
       );
     setSavingMapping(null);
@@ -603,9 +617,9 @@ export function TransactionsWebhookCard() {
       toast({ variant: "destructive", title: "Falha ao salvar mapeamento", description: error.message });
       return;
     }
-    setKnownMappings((s) => new Set(s).add(external.toLowerCase()));
-    setJustMapped((m) => ({ ...m, [external.toLowerCase()]: internal }));
-    toast({ title: `“${external}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
+    setKnownMappings((s) => new Set(s).add(dedupKey));
+    setJustMapped((m) => ({ ...m, [dedupKey]: internal }));
+    toast({ title: `“${normalized}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
   };
 
   // Persiste vários mapeamentos de uma vez (modo seleção múltipla)
