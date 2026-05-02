@@ -536,6 +536,8 @@ export function TransactionsWebhookCard() {
         entry.label,
         entry.ok,
         entry.status,
+        entry.statusText ?? "",
+        Math.round(entry.durationMs),
         entry.upsert,
         entry.replayOfId ?? "",
         txCount,
