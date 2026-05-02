@@ -295,7 +295,102 @@ export function TransactionsWebhookCard() {
     }
   };
 
-  const downloadFile = (content: string, filename: string, mime: string) => {
+  // Normaliza payload colado: aceita array direto ou { transactions: [...] }
+  const parseCustomPayload = (raw: string): { payload: IngestPayload; count: number } => {
+    const trimmed = raw.trim();
+    if (!trimmed) throw new Error("Cole um JSON antes de testar.");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "JSON inválido";
+      throw new Error(`JSON inválido: ${msg}`);
+    }
+    let txs: unknown[];
+    let extras: Record<string, unknown> = {};
+    if (Array.isArray(parsed)) {
+      txs = parsed;
+    } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as { transactions?: unknown }).transactions)) {
+      txs = (parsed as { transactions: unknown[] }).transactions;
+      extras = { ...(parsed as Record<string, unknown>) };
+      delete extras.transactions;
+    } else {
+      throw new Error("O JSON precisa ser um array ou conter a chave 'transactions'.");
+    }
+    if (txs.length === 0) throw new Error("Nenhuma transação no payload.");
+    if (txs.length > 500) throw new Error(`Máximo 500 transações por chamada (recebido: ${txs.length}).`);
+    const payload: IngestPayload = { ...extras, transactions: txs };
+    if (upsertMode) payload.mode = "upsert";
+    return { payload, count: txs.length };
+  };
+
+  const persistCustomPayload = (raw: string) => {
+    try {
+      const at = new Date().toISOString();
+      localStorage.setItem(CUSTOM_PAYLOAD_STORAGE_KEY, JSON.stringify({ payload: raw, savedAt: at }));
+      setSavedAt(at);
+    } catch {
+      /* quota cheia: ignora */
+    }
+  };
+
+  const runCustomTest = async () => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Faça login para testar" });
+      return;
+    }
+    let prepared: { payload: IngestPayload; count: number };
+    try {
+      prepared = parseCustomPayload(customPayload);
+      setCustomError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Payload inválido";
+      setCustomError(msg);
+      toast({ variant: "destructive", title: "Payload inválido", description: msg });
+      return;
+    }
+    persistCustomPayload(customPayload);
+    setTesting("custom");
+    const label = `Payload customizado · ${prepared.count} txs${upsertMode ? " · upsert" : ""}`;
+    try {
+      await sendIngest({ payload: prepared.payload, upsert: upsertMode, label });
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const formatCustomPayload = () => {
+    try {
+      const parsed = JSON.parse(customPayload);
+      const pretty = JSON.stringify(parsed, null, 2);
+      setCustomPayload(pretty);
+      setCustomError(null);
+      toast({ title: "JSON formatado" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "JSON inválido";
+      setCustomError(msg);
+      toast({ variant: "destructive", title: "Não foi possível formatar", description: msg });
+    }
+  };
+
+  const loadSampleIntoEditor = () => {
+    setCustomPayload(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
+    setCustomError(null);
+  };
+
+  const loadTesouroIntoEditor = () => {
+    setCustomPayload(JSON.stringify(buildTesouroBrilhantePayload(), null, 2));
+    setCustomError(null);
+  };
+
+  const clearCustomPayload = () => {
+    setCustomPayload("");
+    setCustomError(null);
+    try {
+      localStorage.removeItem(CUSTOM_PAYLOAD_STORAGE_KEY);
+    } catch { /* noop */ }
+    setSavedAt(null);
+  };
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
