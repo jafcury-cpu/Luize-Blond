@@ -251,6 +251,7 @@ const WebhookLogs = () => {
                   <TableHead>Auth</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Inseridas</TableHead>
+                  <TableHead className="text-right">Atual.</TableHead>
                   <TableHead className="text-right">Skip</TableHead>
                   <TableHead className="text-right">Rej.</TableHead>
                   <TableHead className="text-right">Tempo</TableHead>
