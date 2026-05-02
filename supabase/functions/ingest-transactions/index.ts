@@ -349,11 +349,13 @@ serve(async (req) => {
   // Aceita 3 formatos: [ ... ], { transactions: [...] }, { data: [...] }
   let list: unknown[] | null = null;
   let envelopeUsed: "array" | "transactions" | "data" | null = null;
+  let bodyMode: unknown = undefined;
   if (Array.isArray(payload)) {
     list = payload;
     envelopeUsed = "array";
   } else if (payload && typeof payload === "object") {
     const obj = payload as Record<string, unknown>;
+    bodyMode = obj.mode;
     if (Array.isArray(obj.transactions)) {
       list = obj.transactions;
       envelopeUsed = "transactions";
@@ -362,6 +364,17 @@ serve(async (req) => {
       envelopeUsed = "data";
     }
   }
+
+  // Modo: insert (default) ou upsert. Aceita ?upsert=true ou ?mode=upsert ou { mode: "upsert" }.
+  const url = new URL(req.url);
+  const queryMode = url.searchParams.get("mode");
+  const upsertFlag = url.searchParams.get("upsert");
+  const mode: "insert" | "upsert" =
+    queryMode === "upsert" ||
+    (upsertFlag !== null && upsertFlag !== "false" && upsertFlag !== "0") ||
+    (typeof bodyMode === "string" && bodyMode.toLowerCase() === "upsert")
+      ? "upsert"
+      : "insert";
 
   if (!list) {
     return finish(
