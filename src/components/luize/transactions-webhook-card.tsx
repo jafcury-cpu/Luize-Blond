@@ -217,6 +217,52 @@ const suggestInternalCategory = (external: string): InternalCategory => {
   return "Outros";
 };
 
+// Limite alinhado com a coluna text do Postgres / boas práticas de UX
+const EXTERNAL_CATEGORY_MAX_LEN = 80;
+
+/**
+ * Normaliza o nome de uma categoria externa antes de persistir.
+ * - trim e colapsa espaços internos
+ * - remove caracteres de controle
+ * - retira pontuação final repetida (ex.: "Uber..." → "Uber")
+ * - aplica Title Case preservando acentos (ex.: "uber eats" → "Uber Eats")
+ * - reduz para no máximo EXTERNAL_CATEGORY_MAX_LEN caracteres
+ * Retorna { value, error } — `value` é null se a entrada for inválida.
+ */
+const normalizeExternalCategory = (raw: string): { value: string | null; error?: string } => {
+  if (typeof raw !== "string") return { value: null, error: "Categoria inválida." };
+  // Remove caracteres de controle e colapsa whitespace
+  let v = raw.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  // Remove pontuação final ruidosa
+  v = v.replace(/[\s.,;:!?\-_/\\|]+$/u, "").trim();
+  if (!v) return { value: null, error: "Categoria não pode ficar vazia." };
+  if (v.length > EXTERNAL_CATEGORY_MAX_LEN) v = v.slice(0, EXTERNAL_CATEGORY_MAX_LEN).trim();
+  // Title Case mantendo acentos; preserva siglas em CAIXA-ALTA curtas (≤3 letras)
+  v = v
+    .split(" ")
+    .map((w) => {
+      if (!w) return w;
+      if (w.length <= 3 && w === w.toUpperCase()) return w;
+      const first = w.charAt(0).toLocaleUpperCase("pt-BR");
+      const rest = w.slice(1).toLocaleLowerCase("pt-BR");
+      return first + rest;
+    })
+    .join(" ");
+  return { value: v };
+};
+
+/**
+ * Chave canônica para deduplicar variações da mesma categoria externa
+ * (case-insensitive, sem acentos, sem pontuação, espaços colapsados).
+ */
+const categoryDedupKey = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
 export function TransactionsWebhookCard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -248,7 +294,7 @@ export function TransactionsWebhookCard() {
       .eq("user_id", user.id)
       .then(({ data }) => {
         if (cancelled || !data) return;
-        setKnownMappings(new Set(data.map((d) => d.external_category.toLowerCase())));
+        setKnownMappings(new Set(data.map((d) => categoryDedupKey(d.external_category))));
       });
     return () => {
       cancelled = true;
@@ -545,11 +591,25 @@ export function TransactionsWebhookCard() {
       toast({ variant: "destructive", title: "Faça login para mapear" });
       return;
     }
+    const { value: normalized, error: normError } = normalizeExternalCategory(external);
+    if (!normalized) {
+      toast({ variant: "destructive", title: "Categoria inválida", description: normError });
+      return;
+    }
+    const dedupKey = categoryDedupKey(normalized);
+    // Bloqueia se já houver variação equivalente persistida
+    if (knownMappings.has(dedupKey) && !justMapped[dedupKey]) {
+      toast({
+        title: "Já existe um mapeamento equivalente",
+        description: `“${normalized}” parece duplicar uma categoria já mapeada. Edite em Mapeamentos se quiser ajustar.`,
+      });
+      return;
+    }
     setSavingMapping(external);
     const { error } = await supabase
       .from("category_mappings")
       .upsert(
-        { user_id: user.id, external_category: external, internal_category: internal },
+        { user_id: user.id, external_category: normalized, internal_category: internal },
         { onConflict: "user_id,external_category" },
       );
     setSavingMapping(null);
@@ -557,9 +617,9 @@ export function TransactionsWebhookCard() {
       toast({ variant: "destructive", title: "Falha ao salvar mapeamento", description: error.message });
       return;
     }
-    setKnownMappings((s) => new Set(s).add(external.toLowerCase()));
-    setJustMapped((m) => ({ ...m, [external.toLowerCase()]: internal }));
-    toast({ title: `“${external}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
+    setKnownMappings((s) => new Set(s).add(dedupKey));
+    setJustMapped((m) => ({ ...m, [dedupKey]: internal }));
+    toast({ title: `“${normalized}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
   };
 
   // Persiste vários mapeamentos de uma vez (modo seleção múltipla)
@@ -569,8 +629,44 @@ export function TransactionsWebhookCard() {
       return;
     }
     if (items.length === 0) return;
+
+    // Normaliza, descarta inválidos e deduplica por chave canônica (mantém a primeira variação)
+    const seen = new Map<string, { external: string; internal: InternalCategory }>();
+    let invalidCount = 0;
+    let dedupedCount = 0;
+    for (const it of items) {
+      const { value: normalized } = normalizeExternalCategory(it.external);
+      if (!normalized) {
+        invalidCount += 1;
+        continue;
+      }
+      const key = categoryDedupKey(normalized);
+      if (seen.has(key)) {
+        dedupedCount += 1;
+        continue;
+      }
+      // Pula se já houver equivalente persistido e ainda não foi mapeado nesta sessão
+      if (knownMappings.has(key) && !justMapped[key]) {
+        dedupedCount += 1;
+        continue;
+      }
+      seen.set(key, { external: normalized, internal: it.internal });
+    }
+
+    const cleaned = Array.from(seen.entries());
+    if (cleaned.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Nada para salvar",
+        description: invalidCount
+          ? "Nomes de categoria inválidos."
+          : "Todas as variações selecionadas já estão mapeadas.",
+      });
+      return;
+    }
+
     setBulkSaving(true);
-    const rows = items.map((it) => ({
+    const rows = cleaned.map(([, it]) => ({
       user_id: user.id,
       external_category: it.external,
       internal_category: it.internal,
@@ -585,18 +681,21 @@ export function TransactionsWebhookCard() {
     }
     setKnownMappings((s) => {
       const next = new Set(s);
-      for (const it of items) next.add(it.external.toLowerCase());
+      for (const [key] of cleaned) next.add(key);
       return next;
     });
     setJustMapped((m) => {
       const next = { ...m };
-      for (const it of items) next[it.external.toLowerCase()] = it.internal;
+      for (const [key, it] of cleaned) next[key] = it.internal;
       return next;
     });
     setSelectedKeys(new Set());
+    const skipped = invalidCount + dedupedCount;
     toast({
-      title: `${items.length} mapeamento${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}`,
-      description: "Próximas importações usarão a categoria correta.",
+      title: `${cleaned.length} mapeamento${cleaned.length > 1 ? "s" : ""} salvo${cleaned.length > 1 ? "s" : ""}`,
+      description: skipped > 0
+        ? `${skipped} variação(ões) ignorada(s) por duplicidade ou nome inválido.`
+        : "Próximas importações usarão a categoria correta.",
     });
   };
 
@@ -608,18 +707,21 @@ export function TransactionsWebhookCard() {
       const list = body?.unmapped_categories ?? [];
       for (const ext of list) {
         if (!ext) continue;
-        const key = ext.toLowerCase();
+        const { value: normalized } = normalizeExternalCategory(ext);
+        if (!normalized) continue;
+        const key = categoryDedupKey(normalized);
+        if (!key) continue;
         if (knownMappings.has(key)) continue;
         const existing = seen.get(key);
         if (existing) {
           existing.occurrences += 1;
         } else {
-          seen.set(key, { external: ext, suggested: suggestInternalCategory(ext), occurrences: 1 });
+          seen.set(key, { external: normalized, suggested: suggestInternalCategory(normalized), occurrences: 1 });
         }
       }
     }
     return Array.from(seen.values()).sort((a, b) => b.occurrences - a.occurrences);
-  }, [history, knownMappings]);
+  }, [knownMappings, history]);
 
   const downloadFile = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -1061,11 +1163,11 @@ export function TransactionsWebhookCard() {
 
         {/* Resumo de categorias sem mapeamento + ações rápidas */}
         {unmappedSummary.length > 0 && (() => {
-          const pendingItems = unmappedSummary.filter((it) => !justMapped[it.external.toLowerCase()]);
-          const allSelected = pendingItems.length > 0 && pendingItems.every((it) => selectedKeys.has(it.external.toLowerCase()));
+          const pendingItems = unmappedSummary.filter((it) => !justMapped[categoryDedupKey(it.external)]);
+          const allSelected = pendingItems.length > 0 && pendingItems.every((it) => selectedKeys.has(categoryDedupKey(it.external)));
           const selectedCount = selectedKeys.size;
           const getCategory = (item: typeof unmappedSummary[number]) =>
-            overrides[item.external.toLowerCase()] ?? item.suggested;
+            overrides[categoryDedupKey(item.external)] ?? item.suggested;
           const toggleSelect = (key: string) => {
             setSelectedKeys((s) => {
               const next = new Set(s);
@@ -1078,7 +1180,7 @@ export function TransactionsWebhookCard() {
             if (allSelected) {
               setSelectedKeys(new Set());
             } else {
-              setSelectedKeys(new Set(pendingItems.map((it) => it.external.toLowerCase())));
+              setSelectedKeys(new Set(pendingItems.map((it) => categoryDedupKey(it.external))));
             }
           };
           const setAllSelectedTo = (cat: InternalCategory) => {
@@ -1090,7 +1192,7 @@ export function TransactionsWebhookCard() {
           };
           const handleBulkSave = () => {
             const items = pendingItems
-              .filter((it) => selectedKeys.has(it.external.toLowerCase()))
+              .filter((it) => selectedKeys.has(categoryDedupKey(it.external)))
               .map((it) => ({ external: it.external, internal: getCategory(it) }));
             void saveMappingsBulk(items);
           };
@@ -1194,7 +1296,7 @@ export function TransactionsWebhookCard() {
 
             <ul className="space-y-1.5">
               {unmappedSummary.map((item) => {
-                const key = item.external.toLowerCase();
+                const key = categoryDedupKey(item.external);
                 const persistedAs = justMapped[key];
                 const isSaving = savingMapping === item.external;
                 const isSelected = selectedKeys.has(key);
