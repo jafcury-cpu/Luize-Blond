@@ -575,6 +575,54 @@ export function TransactionsWebhookCard() {
           </div>
         </div>
 
+        {/* Editor de payload customizado */}
+        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Code2 className="size-4 text-muted-foreground" />
+              Editor de payload
+              {savedAt && (
+                <Badge variant="outline" className="inline-flex items-center gap-1 text-[10px]">
+                  <Save className="size-3" /> salvo {new Date(savedAt).toLocaleString("pt-BR")}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={loadSampleIntoEditor}>
+                Exemplo
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={loadTesouroIntoEditor}>
+                Tesouro Brilhante
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={formatCustomPayload} disabled={!customPayload.trim()}>
+                Formatar
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={clearCustomPayload} disabled={!customPayload && !savedAt}>
+                <Eraser className="mr-1 size-3" /> Limpar
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            value={customPayload}
+            onChange={(e) => {
+              setCustomPayload(e.target.value);
+              if (customError) setCustomError(null);
+            }}
+            placeholder='Cole um JSON aqui — pode ser um array de transações ou { "transactions": [...] }'
+            className="min-h-[180px] font-mono text-[11px] leading-relaxed"
+            spellCheck={false}
+          />
+          {customError ? (
+            <p className="flex items-start gap-1.5 text-[11px] text-destructive">
+              <AlertCircle className="mt-0.5 size-3 shrink-0" /> {customError}
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              O último payload colado fica salvo neste navegador para reuso. Validamos o JSON antes de enviar e respeitamos o modo upsert acima.
+            </p>
+          )}
+        </div>
+
         {/* Test buttons */}
         <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
           <Button
