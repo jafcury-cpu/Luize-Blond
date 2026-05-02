@@ -562,7 +562,44 @@ export function TransactionsWebhookCard() {
     toast({ title: `“${external}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
   };
 
-  // Agrega categorias unmapped de todo o histórico (deduplicado, mantém só as ainda não resolvidas)
+  // Persiste vários mapeamentos de uma vez (modo seleção múltipla)
+  const saveMappingsBulk = async (items: Array<{ external: string; internal: InternalCategory }>) => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Faça login para mapear" });
+      return;
+    }
+    if (items.length === 0) return;
+    setBulkSaving(true);
+    const rows = items.map((it) => ({
+      user_id: user.id,
+      external_category: it.external,
+      internal_category: it.internal,
+    }));
+    const { error } = await supabase
+      .from("category_mappings")
+      .upsert(rows, { onConflict: "user_id,external_category" });
+    setBulkSaving(false);
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao salvar mapeamentos", description: error.message });
+      return;
+    }
+    setKnownMappings((s) => {
+      const next = new Set(s);
+      for (const it of items) next.add(it.external.toLowerCase());
+      return next;
+    });
+    setJustMapped((m) => {
+      const next = { ...m };
+      for (const it of items) next[it.external.toLowerCase()] = it.internal;
+      return next;
+    });
+    setSelectedKeys(new Set());
+    toast({
+      title: `${items.length} mapeamento${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}`,
+      description: "Próximas importações usarão a categoria correta.",
+    });
+  };
+
   const unmappedSummary = useMemo(() => {
     const seen = new Map<string, { external: string; suggested: InternalCategory; occurrences: number }>();
     for (const entry of history) {
