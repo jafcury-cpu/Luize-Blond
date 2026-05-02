@@ -14,6 +14,9 @@ import {
   Code2,
   Eraser,
   Save,
+  Wand2,
+  Tags,
+  ExternalLink,
 } from "lucide-react";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
@@ -174,6 +177,42 @@ const latencyTone = (ms: number) => {
   return "text-destructive";
 };
 
+// Mantém em sincronia com category-mappings-card.tsx
+const INTERNAL_CATEGORIES = [
+  "Moradia",
+  "Saúde",
+  "Transporte",
+  "Educação",
+  "Lazer",
+  "Alimentação",
+  "Receitas",
+  "Outros",
+] as const;
+type InternalCategory = (typeof INTERNAL_CATEGORIES)[number];
+
+// Palavras-chave para sugerir mapeamento de uma categoria externa do Tesouro Brilhante / n8n
+const SUGGESTION_RULES: Array<{ category: InternalCategory; keywords: string[] }> = [
+  { category: "Alimentação", keywords: ["aliment", "merc", "supermerc", "restaur", "ifood", "lanch", "padaria", "comida", "delivery"] },
+  { category: "Transporte", keywords: ["transp", "uber", "99", "combust", "gasol", "etanol", "estacion", "pedagio", "pedágio", "metro", "ônibus", "onibus", "taxi", "táxi"] },
+  { category: "Moradia", keywords: ["mora", "aluguel", "condom", "iptu", "luz", "energia", "água", "agua", "gas", "internet", "vivo", "claro", "tim", "net", "casa"] },
+  { category: "Saúde", keywords: ["saúd", "saud", "farm", "drogar", "médic", "medic", "hospital", "clinic", "exame", "plano de saude", "academia", "psico"] },
+  { category: "Educação", keywords: ["educa", "escola", "facul", "curso", "livro", "mensalidade escolar", "udemy", "alura"] },
+  { category: "Lazer", keywords: ["lazer", "cinema", "viag", "hotel", "ingresso", "show", "spotify", "netflix", "disney", "prime", "hbo", "stream"] },
+  { category: "Receitas", keywords: ["receit", "salár", "salar", "rendiment", "dividend", "pagto recebido", "transferência recebida", "pix recebido", "freela", "comiss"] },
+];
+
+const suggestInternalCategory = (external: string): InternalCategory => {
+  const norm = external
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  for (const rule of SUGGESTION_RULES) {
+    if (rule.keywords.some((k) => norm.includes(k.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))) {
+      return rule.category;
+    }
+  }
+  return "Outros";
+};
 
 export function TransactionsWebhookCard() {
   const { user } = useAuth();
@@ -184,6 +223,28 @@ export function TransactionsWebhookCard() {
   const [customPayload, setCustomPayload] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Mapeamentos já existentes — evita sugerir o que já está mapeado
+  const [knownMappings, setKnownMappings] = useState<Set<string>>(new Set());
+  // Categorias acabadas de mapear nesta sessão (para feedback inline)
+  const [justMapped, setJustMapped] = useState<Record<string, InternalCategory>>({});
+  // Categoria externa atualmente sendo persistida — evita cliques duplos
+  const [savingMapping, setSavingMapping] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void supabase
+      .from("category_mappings")
+      .select("external_category")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setKnownMappings(new Set(data.map((d) => d.external_category.toLowerCase())));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Restaura último payload colado da sessão anterior
   useEffect(() => {
@@ -468,6 +529,51 @@ export function TransactionsWebhookCard() {
     } catch { /* noop */ }
     setSavedAt(null);
   };
+
+  // Persiste um mapeamento direto da sugestão e atualiza o estado local
+  const saveMapping = async (external: string, internal: InternalCategory) => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Faça login para mapear" });
+      return;
+    }
+    setSavingMapping(external);
+    const { error } = await supabase
+      .from("category_mappings")
+      .upsert(
+        { user_id: user.id, external_category: external, internal_category: internal },
+        { onConflict: "user_id,external_category" },
+      );
+    setSavingMapping(null);
+    if (error) {
+      toast({ variant: "destructive", title: "Falha ao salvar mapeamento", description: error.message });
+      return;
+    }
+    setKnownMappings((s) => new Set(s).add(external.toLowerCase()));
+    setJustMapped((m) => ({ ...m, [external.toLowerCase()]: internal }));
+    toast({ title: `“${external}” → ${internal}`, description: "Mapeamento salvo. Próximas importações serão classificadas." });
+  };
+
+  // Agrega categorias unmapped de todo o histórico (deduplicado, mantém só as ainda não resolvidas)
+  const unmappedSummary = useMemo(() => {
+    const seen = new Map<string, { external: string; suggested: InternalCategory; occurrences: number }>();
+    for (const entry of history) {
+      if (!entry.ok) continue;
+      const body = entry.body as { unmapped_categories?: string[] } | undefined;
+      const list = body?.unmapped_categories ?? [];
+      for (const ext of list) {
+        if (!ext) continue;
+        const key = ext.toLowerCase();
+        if (knownMappings.has(key)) continue;
+        const existing = seen.get(key);
+        if (existing) {
+          existing.occurrences += 1;
+        } else {
+          seen.set(key, { external: ext, suggested: suggestInternalCategory(ext), occurrences: 1 });
+        }
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => b.occurrences - a.occurrences);
+  }, [history, knownMappings]);
 
   const downloadFile = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -903,6 +1009,78 @@ export function TransactionsWebhookCard() {
                 );
               })}
 
+            </ul>
+          </div>
+        )}
+
+        {/* Resumo de categorias sem mapeamento + ações rápidas */}
+        {unmappedSummary.length > 0 && (
+          <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Wand2 className="size-4 text-amber-400" />
+                Categorias sem mapeamento
+                <Badge variant="outline" className="text-[10px]">{unmappedSummary.length}</Badge>
+              </div>
+              <Button type="button" variant="ghost" size="sm" asChild className="h-7 px-2 text-[11px]">
+                <a href="#mapeamentos">
+                  <Tags className="mr-1 size-3" /> Abrir mapeamentos
+                  <ExternalLink className="ml-1 size-3" />
+                </a>
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Sugerimos uma categoria interna com base no nome. Ajuste se quiser e salve — o mapeamento vale para todas as próximas importações.
+            </p>
+            <ul className="space-y-1.5">
+              {unmappedSummary.map((item) => {
+                const key = item.external.toLowerCase();
+                const persistedAs = justMapped[key];
+                const isSaving = savingMapping === item.external;
+                return (
+                  <li
+                    key={key}
+                    className="flex flex-wrap items-center gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5 text-xs"
+                  >
+                    <span className="font-mono text-foreground" title={`Apareceu em ${item.occurrences} execução(ões)`}>
+                      {item.external}
+                    </span>
+                    {item.occurrences > 1 && (
+                      <Badge variant="secondary" className="text-[10px]">×{item.occurrences}</Badge>
+                    )}
+                    <ArrowRight className="size-3 text-muted-foreground" />
+                    {persistedAs ? (
+                      <Badge variant="default" className="inline-flex items-center gap-1 text-[10px]">
+                        <CheckCircle2 className="size-3" /> mapeado para {persistedAs}
+                      </Badge>
+                    ) : (
+                      <>
+                        <select
+                          defaultValue={item.suggested}
+                          onChange={(e) => {
+                            item.suggested = e.target.value as InternalCategory;
+                          }}
+                          className="h-7 rounded border border-border/60 bg-muted/40 px-1.5 font-mono text-[11px]"
+                        >
+                          {INTERNAL_CATEGORIES.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="ml-auto h-7 px-2 text-[11px]"
+                          disabled={isSaving || savingMapping !== null}
+                          onClick={() => saveMapping(item.external, item.suggested)}
+                        >
+                          {isSaving ? "Salvando..." : "Salvar mapeamento"}
+                        </Button>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
