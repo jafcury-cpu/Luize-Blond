@@ -1206,7 +1206,9 @@ export function TransactionsWebhookCard() {
             const items = pendingItems
               .filter((it) => selectedKeys.has(categoryDedupKey(it.external)))
               .map((it) => ({ external: it.external, internal: getCategory(it) }));
-            void saveMappingsBulk(items);
+            if (items.length === 0) return;
+            // Abre confirmação com snapshot — evita race se a seleção mudar
+            setBulkConfirm(items);
           };
           return (
           <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
