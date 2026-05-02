@@ -309,6 +309,9 @@ serve(async (req) => {
     );
   }
 
+  // Aplica mapeamento configurável de categorias externas → internas (fallback "Outros").
+  const { unmapped } = await applyCategoryMappings(dbClient, userId!, accepted);
+
   const externalIds = accepted.map((t) => t.external_id).filter((v): v is string => !!v);
   let existingExternalIds = new Set<string>();
   if (externalIds.length > 0) {
