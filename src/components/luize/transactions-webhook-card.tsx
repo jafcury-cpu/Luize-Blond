@@ -17,7 +17,10 @@ import {
   Wand2,
   Tags,
   ExternalLink,
+  Layers,
+  XCircle,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SectionCard } from "@/components/luize/section-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
