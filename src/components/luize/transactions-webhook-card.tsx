@@ -262,6 +262,8 @@ const categoryDedupKey = (raw: string): string =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+
+export function TransactionsWebhookCard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [testing, setTesting] = useState<null | "sample" | "tesouro" | "custom">(null);
